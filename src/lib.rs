@@ -91,7 +91,7 @@ mod tests {
     #[test]
     fn start_works() -> Result<(), Box<dyn Error>> {
         let path = "./temp/start_works";
-        fs::remove_dir_all(&path[..6])?;
+        fs::remove_dir_all(&path[..6]).unwrap_or(());
         fs::create_dir_all(path)?;
         let config = Config {
             action: Action::Start,
