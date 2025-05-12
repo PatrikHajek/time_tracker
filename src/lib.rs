@@ -91,16 +91,16 @@ mod tests {
     #[test]
     fn start_works() -> Result<(), Box<dyn Error>> {
         let path = "./temp/start_works";
-        fs::remove_dir_all(path)?;
+        fs::remove_dir_all(&path[..6])?;
+        fs::create_dir_all(path)?;
         let config = Config {
             action: Action::Start,
             session_path: String::from(path),
         };
-        fs::create_dir_all(path)?;
         start(&config)?;
         let dir = fs::read_dir(path)?;
         assert_eq!(dir.count(), 1);
-        fs::remove_dir_all(path)?;
+        fs::remove_dir_all(&path[..6])?;
         Ok(())
     }
 }
