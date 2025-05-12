@@ -1,6 +1,17 @@
+use std::{error::Error, fs};
+
+fn get_contents(date: &str) -> String {
+    format!(
+        "\
+# {date}
+"
+    )
+}
+
 #[derive(PartialEq, Debug)]
 pub struct Config {
     pub action: Action,
+    pub session_path: String,
 }
 
 impl Config {
@@ -10,7 +21,10 @@ impl Config {
         }
 
         let action = Action::build(&args[1])?;
-        Ok(Config { action })
+        Ok(Config {
+            action,
+            session_path: String::from("./sessions"),
+        })
     }
 }
 
@@ -18,7 +32,9 @@ impl Config {
 pub enum Action {
     Start,
     Stop,
-    Mark,
+    // Mark,
+    // Set,
+    // View
 }
 
 impl Action {
@@ -32,6 +48,29 @@ impl Action {
     }
 }
 
+pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
+    let result = match config.action {
+        Action::Start => start(&config),
+        Action::Stop => stop(),
+    };
+    Ok(result?)
+}
+
+fn start(config: &Config) -> Result<(), Box<dyn Error>> {
+    let date = chrono::Local::now().format("%FT%T%:z");
+    let contents = get_contents(&date.to_string());
+    let path = format!("{}/{}.md", config.session_path, date);
+    if fs::exists(&path)? {
+        return Err("this session file is already created")?;
+    };
+    fs::write(&path, &contents)?;
+    Ok(())
+}
+
+fn stop() -> Result<(), Box<dyn Error>> {
+    todo!();
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -43,8 +82,25 @@ mod tests {
         assert_eq!(
             result,
             Config {
-                action: Action::Start
+                action: Action::Start,
+                session_path: String::from("./sessions")
             }
         );
+    }
+
+    #[test]
+    fn start_works() -> Result<(), Box<dyn Error>> {
+        let path = "./temp/start_works";
+        fs::remove_dir_all(path)?;
+        let config = Config {
+            action: Action::Start,
+            session_path: String::from(path),
+        };
+        fs::create_dir_all(path)?;
+        start(&config)?;
+        let dir = fs::read_dir(path)?;
+        assert_eq!(dir.count(), 1);
+        fs::remove_dir_all(path)?;
+        Ok(())
     }
 }
