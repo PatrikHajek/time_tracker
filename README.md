@@ -7,3 +7,4 @@
 - [ ] meta commands on your sessions
 - [ ] file config
 - [ ] git integration
+- [ ] additional metadata like tags and others
