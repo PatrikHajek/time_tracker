@@ -11,7 +11,7 @@ fn get_contents(date: &str) -> String {
 #[derive(PartialEq, Debug)]
 pub struct Config {
     pub action: Action,
-    pub session_path: String,
+    pub sessions_path: String,
 }
 
 impl Config {
@@ -23,7 +23,7 @@ impl Config {
         let action = Action::build(&args[1])?;
         Ok(Config {
             action,
-            session_path: String::from("./sessions"),
+            sessions_path: String::from("./sessions"),
         })
     }
 }
@@ -72,7 +72,7 @@ struct StartData {
 fn start_get_data(config: &Config) -> StartData {
     let date = chrono::Local::now().format("%FT%T%:z").to_string();
     let contents = get_contents(&date);
-    let path = format!("{}/{}.md", config.session_path, date);
+    let path = format!("{}/{}.md", config.sessions_path, date);
     StartData { path, contents }
 }
 
@@ -92,7 +92,7 @@ mod tests {
             result,
             Config {
                 action: Action::Start,
-                session_path: String::from("./sessions")
+                sessions_path: String::from("./sessions")
             }
         );
     }
@@ -101,7 +101,7 @@ mod tests {
     fn start_get_data_works() {
         let config = Config {
             action: Action::Start,
-            session_path: String::from("."),
+            sessions_path: String::from("."),
         };
         let StartData { path, contents } = start_get_data(&config);
         let date = &path[2..path.len() - 3];
