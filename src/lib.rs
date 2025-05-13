@@ -57,14 +57,23 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
 }
 
 fn start(config: &Config) -> Result<(), Box<dyn Error>> {
-    let date = chrono::Local::now().format("%FT%T%:z");
-    let contents = get_contents(&date.to_string());
-    let path = format!("{}/{}.md", config.session_path, date);
+    let StartData { path, contents } = start_get_data(config);
     if fs::exists(&path)? {
         return Err("this session file is already created")?;
     };
     fs::write(&path, &contents)?;
     Ok(())
+}
+
+struct StartData {
+    path: String,
+    contents: String,
+}
+fn start_get_data(config: &Config) -> StartData {
+    let date = chrono::Local::now().format("%FT%T%:z").to_string();
+    let contents = get_contents(&date);
+    let path = format!("{}/{}.md", config.session_path, date);
+    StartData { path, contents }
 }
 
 fn stop() -> Result<(), Box<dyn Error>> {
@@ -89,18 +98,14 @@ mod tests {
     }
 
     #[test]
-    fn start_works() -> Result<(), Box<dyn Error>> {
-        let path = "./temp/start_works";
-        fs::remove_dir_all(&path[..6]).unwrap_or(());
-        fs::create_dir_all(path)?;
+    fn start_get_data_works() {
         let config = Config {
             action: Action::Start,
-            session_path: String::from(path),
+            session_path: String::from("."),
         };
-        start(&config)?;
-        let dir = fs::read_dir(path)?;
-        assert_eq!(dir.count(), 1);
-        fs::remove_dir_all(&path[..6])?;
-        Ok(())
+        let StartData { path, contents } = start_get_data(&config);
+        let date = &path[2..path.len() - 3];
+        assert_eq!(path, format!("./{}.md", date));
+        assert!(contents.contains(&format!("# {}", date)));
     }
 }
