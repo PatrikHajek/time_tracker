@@ -16,8 +16,7 @@ fn get_contents(date: &str) -> String {
         "\
 {SESSION_HEADING_PREFIX}{date}
 
-{MARKS_HEADING}
-"
+{MARKS_HEADING}"
     )
 }
 
@@ -279,7 +278,11 @@ mod tests {
     }
 
     #[test]
-    fn session_file_build_works() {}
+    fn session_file_build_works() {
+        let contents = get_contents(&DateTime::now().formatted);
+        let file = SessionFile::build(contents.to_string()).unwrap();
+        assert_eq!(&file.contents, &contents);
+    }
 
     #[test]
     fn session_file_get_heading_with_contents_works() {}
