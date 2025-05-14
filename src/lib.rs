@@ -255,6 +255,17 @@ mod tests {
     }
 
     #[test]
+    fn action_build_works() -> Result<(), Box<dyn Error>> {
+        assert_eq!(Action::build("start")?, Action::Start);
+        assert_eq!(Action::build("stop")?, Action::Stop);
+        assert_eq!(Action::build("mark")?, Action::Mark);
+
+        assert!(Action::build("some string").is_err());
+
+        Ok(())
+    }
+
+    #[test]
     fn start_get_data_works() {
         let config = Config {
             action: Action::Start,
@@ -266,9 +277,6 @@ mod tests {
         assert_eq!(path, format!("./{}.md", date));
         assert!(contents.contains(&format!("# {}", date)));
     }
-
-    #[test]
-    fn action_build_works() {}
 
     #[test]
     fn session_file_build_works() {}
