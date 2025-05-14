@@ -242,7 +242,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn builds_config() {
+    fn config_build_works() {
         let args = &[String::from("time_tracker"), String::from("start")];
         let result = Config::build(args).unwrap();
         assert_eq!(
