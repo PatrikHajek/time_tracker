@@ -233,11 +233,11 @@ impl DateTime {
                 .unwrap();
         DateTime {
             date,
-            formatted: DateTime::format(date),
+            formatted: DateTime::format(&date),
         }
     }
 
-    fn format(date: chrono::DateTime<chrono::Local>) -> String {
+    fn format(date: &chrono::DateTime<chrono::Local>) -> String {
         date.format("%FT%T%:z").to_string()
     }
 }
@@ -327,6 +327,6 @@ mod tests {
         assert_eq!(date.nanosecond(), 0);
         assert_eq!(date.offset(), now.offset());
 
-        assert_eq!(formatted, DateTime::format(date));
+        assert_eq!(formatted, DateTime::format(&date));
     }
 }
