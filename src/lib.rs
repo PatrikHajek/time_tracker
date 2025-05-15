@@ -109,6 +109,7 @@ impl SessionFile {
     }
 }
 
+#[derive(PartialEq, Debug)]
 struct Session {
     is_active: bool,
     start: chrono::DateTime<chrono::Local>,
@@ -174,6 +175,7 @@ impl Session {
     }
 }
 
+#[derive(PartialEq, Debug)]
 struct Mark {
     date: chrono::DateTime<chrono::Local>,
     contents: String,
@@ -308,7 +310,34 @@ mod tests {
     }
 
     #[test]
-    fn session_parse_works() {}
+    fn session_parse_works() {
+        let DateTime { date, formatted } = DateTime::now();
+        let mark_first_dt = DateTime {
+            date: date.with_hour(5).unwrap(),
+            formatted: DateTime::format(&date.with_hour(5).unwrap()),
+        };
+        let mark_first = Mark {
+            date: mark_first_dt.date,
+            contents: format!("{MARK_HEADING_PREFIX}{}\n", mark_first_dt.formatted),
+        };
+
+        let contents = format!(
+            "\
+{SESSION_HEADING_PREFIX}{formatted}
+
+{MARKS_HEADING}
+
+{MARK_HEADING_PREFIX}{}",
+            mark_first_dt.formatted
+        );
+        let session = Session {
+            is_active: true,
+            start: date,
+            marks: vec![mark_first],
+        };
+
+        assert_eq!(Session::parse(&contents).unwrap(), session);
+    }
 
     #[test]
     fn session_mark() {}
