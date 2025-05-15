@@ -7,6 +7,8 @@ use std::{
     str::FromStr,
 };
 
+use chrono::Timelike;
+
 const SESSION_HEADING_PREFIX: &str = "# ";
 const MARKS_HEADING: &str = "## Marks";
 const MARK_HEADING_PREFIX: &str = "### ";
@@ -224,7 +226,11 @@ struct DateTime {
 }
 impl DateTime {
     fn now() -> DateTime {
-        let date = chrono::Local::now();
+        let now = chrono::Local::now();
+        let date =
+            chrono::NaiveDateTime::new(now.date_naive(), now.time().with_nanosecond(0).unwrap())
+                .and_local_timezone(now.timezone())
+                .unwrap();
         DateTime {
             date,
             formatted: DateTime::format(date),
@@ -238,6 +244,8 @@ impl DateTime {
 
 #[cfg(test)]
 mod tests {
+    use chrono::{Datelike, TimeZone};
+
     use super::*;
 
     #[test]
@@ -304,4 +312,21 @@ mod tests {
 
     #[test]
     fn session_mark() {}
+
+    #[test]
+    fn date_time_now_works() {
+        let DateTime { date, formatted } = DateTime::now();
+        let now = chrono::Local::now();
+
+        assert_eq!(date.year(), now.year());
+        assert_eq!(date.month(), now.month());
+        assert_eq!(date.day(), now.day());
+        assert_eq!(date.hour(), now.hour());
+        assert_eq!(date.minute(), now.minute());
+        assert_eq!(date.second(), now.second());
+        assert_eq!(date.nanosecond(), 0);
+        assert_eq!(date.offset(), now.offset());
+
+        assert_eq!(formatted, DateTime::format(date));
+    }
 }
