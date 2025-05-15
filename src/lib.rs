@@ -285,10 +285,19 @@ mod tests {
     }
 
     #[test]
-    fn session_file_get_heading_with_contents_works() {}
+    fn session_file_get_heading_with_contents_works() {
+        let contents = get_contents(&DateTime::now().formatted);
+        let file = SessionFile::build(contents.clone()).unwrap();
+        let heading_contents = SessionFile::get_heading_with_contents(MARKS_HEADING, &contents);
+        assert_eq!(heading_contents, format!("{MARKS_HEADING}\n"));
+    }
 
     #[test]
-    fn session_file_get_heading_level_works() {}
+    fn session_file_get_heading_level_works() {
+        assert_eq!(SessionFile::get_heading_level("# Heading"), 1);
+        assert_eq!(SessionFile::get_heading_level("## Heading"), 2);
+        assert_eq!(SessionFile::get_heading_level("##### Heading"), 5);
+    }
 
     #[test]
     fn session_parse_works() {}
