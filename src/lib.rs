@@ -67,7 +67,7 @@ struct SessionFile {
     contents: String,
 }
 impl SessionFile {
-    fn build(contents: String) -> Result<SessionFile, &'static str> {
+    fn build(contents: &str) -> Result<SessionFile, &'static str> {
         let contents = contents.trim();
         if !contents.starts_with(SESSION_HEADING_PREFIX) || !contents.contains(MARKS_HEADING) {
             return Err("couldn't parse session file");
@@ -125,10 +125,10 @@ impl Session {
             return Err("there is no active session")?;
         }
         let contents = fs::read_to_string(&dir[dir.len() - 1])?;
-        Session::parse(contents)
+        Session::parse(&contents)
     }
 
-    fn parse(contents: String) -> Result<Session, Box<dyn Error>> {
+    fn parse(contents: &str) -> Result<Session, Box<dyn Error>> {
         let file = SessionFile::build(contents)?;
         let start: chrono::DateTime<chrono::Local> = file
             .contents
@@ -288,14 +288,14 @@ mod tests {
     #[test]
     fn session_file_build_works() {
         let contents = get_contents(&DateTime::now().formatted);
-        let file = SessionFile::build(contents.to_string()).unwrap();
+        let file = SessionFile::build(&contents).unwrap();
         assert_eq!(&file.contents, &contents);
     }
 
     #[test]
     fn session_file_get_heading_with_contents_works() {
         let contents = get_contents(&DateTime::now().formatted);
-        let file = SessionFile::build(contents.clone()).unwrap();
+        let file = SessionFile::build(&contents).unwrap();
         let heading_contents = SessionFile::get_heading_with_contents(MARKS_HEADING, &contents);
         assert_eq!(heading_contents, format!("{MARKS_HEADING}\n"));
     }
