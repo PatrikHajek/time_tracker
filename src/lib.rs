@@ -13,6 +13,7 @@ const SESSION_HEADING_PREFIX: &str = "# ";
 const MARKS_HEADING: &str = "## Marks";
 const MARK_HEADING_PREFIX: &str = "### ";
 
+// TODO: move to `SessionFile`
 fn get_contents(date: &str) -> String {
     format!(
         "\
