@@ -373,7 +373,7 @@ mod tests {
     }
 
     #[test]
-    fn session_to_file() -> Result<(), Box<dyn Error>> {
+    fn session_to_file_works() -> Result<(), Box<dyn Error>> {
         let dt = DateTime::now();
         let mark_dt = DateTime {
             date: dt.date.with_hour(5).unwrap(),
