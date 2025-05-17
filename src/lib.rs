@@ -70,6 +70,7 @@ struct SessionFile {
     contents: String,
 }
 impl SessionFile {
+    // TODO: add checks for path
     fn build(path: &PathBuf, contents: &str) -> Result<SessionFile, &'static str> {
         let contents = contents.trim();
         if !contents.starts_with(SESSION_HEADING_PREFIX) || !contents.contains(MARKS_HEADING) {
@@ -207,6 +208,7 @@ impl Session {
 #[derive(PartialEq, Debug)]
 struct Mark {
     date: chrono::DateTime<chrono::Local>,
+    // TODO: remove
     contents: String,
 }
 
@@ -228,6 +230,7 @@ fn start(config: &Config) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+// TODO: remove, this is SessionFile
 struct StartData {
     path: PathBuf,
     contents: String,
