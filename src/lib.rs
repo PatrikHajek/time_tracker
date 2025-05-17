@@ -65,15 +65,17 @@ impl Action {
 }
 
 struct SessionFile {
+    path: PathBuf,
     contents: String,
 }
 impl SessionFile {
-    fn build(contents: &str) -> Result<SessionFile, &'static str> {
+    fn build(path: &PathBuf, contents: &str) -> Result<SessionFile, &'static str> {
         let contents = contents.trim();
         if !contents.starts_with(SESSION_HEADING_PREFIX) || !contents.contains(MARKS_HEADING) {
             return Err("couldn't parse session file");
         }
         Ok(SessionFile {
+            path: path.clone(),
             contents: contents.to_string(),
         })
     }
@@ -126,12 +128,13 @@ impl Session {
         if dir.len() == 0 {
             return Err("there is no active session")?;
         }
-        let contents = fs::read_to_string(&dir[dir.len() - 1])?;
-        Session::parse(&contents)
+        let path = &dir[dir.len() - 1];
+        let contents = fs::read_to_string(&path)?;
+        let file = SessionFile::build(&path, &contents)?;
+        Session::parse(&file)
     }
 
-    fn parse(contents: &str) -> Result<Session, Box<dyn Error>> {
-        let file = SessionFile::build(contents)?;
+    fn parse(file: &SessionFile) -> Result<Session, Box<dyn Error>> {
         let start: chrono::DateTime<chrono::Local> = file
             .contents
             .lines()
@@ -290,8 +293,9 @@ mod tests {
 
     #[test]
     fn session_file_build_works() {
+        let path = PathBuf::new();
         let contents = get_contents(&DateTime::now().formatted);
-        let file = SessionFile::build(&contents).unwrap();
+        let file = SessionFile::build(&path, &contents).unwrap();
         assert_eq!(&file.contents, &contents);
     }
 
@@ -330,13 +334,14 @@ mod tests {
 {MARK_HEADING_PREFIX}{}",
             mark_first_dt.formatted
         );
+        let file = SessionFile::build(&PathBuf::new(), &contents).unwrap();
         let session = Session {
             is_active: true,
             start: date,
             marks: vec![mark_first],
         };
 
-        assert_eq!(Session::parse(&contents).unwrap(), session);
+        assert_eq!(Session::parse(&file).unwrap(), session);
     }
 
     #[test]
