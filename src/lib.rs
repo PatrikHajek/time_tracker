@@ -64,6 +64,7 @@ impl Action {
     }
 }
 
+#[derive(PartialEq, Debug)]
 struct SessionFile {
     path: PathBuf,
     contents: String,
@@ -165,8 +166,32 @@ impl Session {
         })
     }
 
-    fn save(&self) -> Result<(), io::Error> {
-        todo!()
+    fn save(&self, config: &Config) -> Result<(), Box<dyn Error>> {
+        let file = self.to_file(&config)?;
+        fs::write(&file.path, &file.contents).map_err(|e| format!("coudln't save session: {e}"))?;
+        Ok(())
+    }
+
+    fn to_file(&self, config: &Config) -> Result<SessionFile, &'static str> {
+        let date = DateTime::format(&self.start);
+        let mut contents = format!(
+            "\
+            {SESSION_HEADING_PREFIX}{date}\n\
+            \n\
+            {MARKS_HEADING}\n\
+            \n\
+            "
+        );
+        for mark in &self.marks {
+            contents += &mark.contents;
+            contents += "\n";
+        }
+
+        let file_name = format!("{}.md", date);
+        let path = config.sessions_path.join(&file_name);
+
+        let file = SessionFile::build(&path, &contents)?;
+        Ok(file)
     }
 
     fn mark(&mut self) {
@@ -222,8 +247,8 @@ fn stop() -> Result<(), Box<dyn Error>> {
 fn mark(config: &Config) -> Result<(), Box<dyn Error>> {
     let mut session = Session::get_active(&config)?;
     session.mark();
-    todo!();
-    // Ok(())
+    session.save(&config)?;
+    Ok(())
 }
 
 struct DateTime {
@@ -342,6 +367,53 @@ mod tests {
         };
 
         assert_eq!(Session::parse(&file).unwrap(), session);
+    }
+
+    #[test]
+    fn session_to_file() -> Result<(), Box<dyn Error>> {
+        let dt = DateTime::now();
+        let mark_dt = DateTime {
+            date: dt.date.with_hour(5).unwrap(),
+            formatted: DateTime::format(&dt.date.with_hour(5).unwrap()),
+        };
+        let mark = Mark {
+            date: mark_dt.date,
+            contents: format!(
+                "\
+                    {MARK_HEADING_PREFIX}{}\n\
+                    \n\
+                    hello world\n\
+                ",
+                mark_dt.formatted
+            ),
+        };
+        let session = Session {
+            is_active: true,
+            start: dt.date,
+            marks: vec![mark],
+        };
+        let config = Config {
+            action: Action::Mark,
+            sessions_path: PathBuf::from("sessions"),
+        };
+        let file = SessionFile::build(
+            &config.sessions_path.join(format!("{}.md", dt.formatted)),
+            &format!(
+                "\
+                    {SESSION_HEADING_PREFIX}{}\n\
+                    \n\
+                    {MARKS_HEADING}\n\
+                    \n\
+                    {MARK_HEADING_PREFIX}{}\n\
+                    \n\
+                    hello world\n\
+                ",
+                dt.formatted, mark_dt.formatted
+            ),
+        )?;
+
+        assert_eq!(session.to_file(&config)?, file);
+        Ok(())
     }
 
     #[test]
