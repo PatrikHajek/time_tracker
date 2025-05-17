@@ -116,6 +116,7 @@ impl SessionFile {
 
 #[derive(PartialEq, Debug)]
 struct Session {
+    path: PathBuf,
     is_active: bool,
     start: chrono::DateTime<chrono::Local>,
     marks: Vec<Mark>,
@@ -161,6 +162,7 @@ impl Session {
         }
 
         Ok(Session {
+            path: file.path.clone(),
             is_active: true,
             start,
             marks,
@@ -364,6 +366,7 @@ mod tests {
         );
         let file = SessionFile::build(&PathBuf::new(), &contents).unwrap();
         let session = Session {
+            path: file.path.clone(),
             is_active: true,
             start: date,
             marks: vec![mark_first],
@@ -390,17 +393,18 @@ mod tests {
                 mark_dt.formatted
             ),
         };
-        let session = Session {
-            is_active: true,
-            start: dt.date,
-            marks: vec![mark],
-        };
         let config = Config {
             action: Action::Mark,
             sessions_path: PathBuf::from("sessions"),
         };
+        let session = Session {
+            path: config.sessions_path.join(format!("{}.md", dt.formatted)),
+            is_active: true,
+            start: dt.date,
+            marks: vec![mark],
+        };
         let file = SessionFile::build(
-            &config.sessions_path.join(format!("{}.md", dt.formatted)),
+            &session.path,
             &format!(
                 "\
                     {SESSION_HEADING_PREFIX}{}\n\
@@ -423,6 +427,7 @@ mod tests {
     fn session_mark_works() {
         let dt = DateTime::now();
         let mut session = Session {
+            path: PathBuf::new(),
             is_active: true,
             start: dt.date,
             marks: vec![],
