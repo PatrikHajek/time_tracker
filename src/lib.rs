@@ -341,7 +341,21 @@ mod tests {
     }
 
     #[test]
-    fn session_mark() {}
+    fn session_mark_works() {
+        let dt = DateTime::now();
+        let mut session = Session {
+            is_active: true,
+            start: dt.date,
+            marks: vec![],
+        };
+        let mark = Mark {
+            date: dt.date,
+            contents: format!("{MARK_HEADING_PREFIX}{}", dt.formatted),
+        };
+        session.mark();
+        assert_eq!(session.marks.len(), 1);
+        assert_eq!(session.marks[0], mark);
+    }
 
     #[test]
     fn date_time_now_works() {
