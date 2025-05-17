@@ -247,7 +247,7 @@ impl DateTime {
 
 #[cfg(test)]
 mod tests {
-    use chrono::{Datelike, TimeZone};
+    use chrono::Datelike;
 
     use super::*;
 
@@ -298,7 +298,6 @@ mod tests {
     #[test]
     fn session_file_get_heading_with_contents_works() {
         let contents = get_contents(&DateTime::now().formatted);
-        let file = SessionFile::build(&contents).unwrap();
         let heading_contents = SessionFile::get_heading_with_contents(MARKS_HEADING, &contents);
         assert_eq!(heading_contents, format!("{MARKS_HEADING}\n"));
     }
