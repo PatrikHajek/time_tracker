@@ -1,5 +1,3 @@
-// TODO: auto-create session directory if missing
-
 use std::{
     error::Error,
     fs, io,
@@ -137,6 +135,7 @@ impl Session {
         Session::parse(&file)
     }
 
+    // TODO: rename to from_file
     fn parse(file: &SessionFile) -> Result<Session, Box<dyn Error>> {
         let start: chrono::DateTime<chrono::Local> = file
             .contents
@@ -186,6 +185,7 @@ impl Session {
             "
         );
         for mark in &self.marks {
+            // TODO: move to Mark.string and after simplify session_to_file_works
             contents += &mark.contents;
             contents += "\n";
         }
