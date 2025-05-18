@@ -152,7 +152,7 @@ impl Session {
         for line in marks_contents.lines() {
             if line.starts_with(MARK_HEADING_PREFIX) {
                 let contents = SessionFile::get_heading_with_contents(&line, &marks_contents);
-                let mark = Mark::build(&contents)?;
+                let mark = Mark::from_string(&contents)?;
                 marks.push(mark);
             }
         }
@@ -214,7 +214,7 @@ impl Mark {
         }
     }
 
-    fn build(contents: &str) -> Result<Mark, Box<dyn Error>> {
+    fn from_string(contents: &str) -> Result<Mark, Box<dyn Error>> {
         let contents = contents.trim();
         let date = contents
             .lines()
@@ -526,7 +526,7 @@ mod tests {
     }
 
     #[test]
-    fn mark_build_works() {
+    fn mark_from_string_works() {
         let dt = DateTime::now();
         let contents = format!(
             "\
@@ -540,7 +540,7 @@ mod tests {
             date: dt.date,
             contents: String::from("This is some content."),
         };
-        assert_eq!(Mark::build(&contents).unwrap(), mark);
+        assert_eq!(Mark::from_string(&contents).unwrap(), mark);
     }
 
     #[test]
