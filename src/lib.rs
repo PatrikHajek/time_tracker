@@ -132,11 +132,10 @@ impl Session {
         let path = &dir[dir.len() - 1];
         let contents = fs::read_to_string(&path)?;
         let file = SessionFile::build(&path, &contents)?;
-        Session::parse(&file)
+        Session::from_file(&file)
     }
 
-    // TODO: rename to from_file
-    fn parse(file: &SessionFile) -> Result<Session, Box<dyn Error>> {
+    fn from_file(file: &SessionFile) -> Result<Session, Box<dyn Error>> {
         let start: chrono::DateTime<chrono::Local> = file
             .contents
             .lines()
@@ -366,7 +365,7 @@ mod tests {
     }
 
     #[test]
-    fn session_parse_works() {
+    fn session_from_file_works() {
         let DateTime { date, formatted } = DateTime::now();
         let mark_first_dt = DateTime {
             date: date.with_hour(5).unwrap(),
@@ -395,7 +394,7 @@ mod tests {
             marks: vec![mark_first],
         };
 
-        assert_eq!(Session::parse(&file).unwrap(), session);
+        assert_eq!(Session::from_file(&file).unwrap(), session);
     }
 
     #[test]
