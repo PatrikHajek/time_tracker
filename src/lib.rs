@@ -123,6 +123,17 @@ struct Session {
 }
 
 impl Session {
+    // TODO: must add 1st mark
+    fn new(config: &Config) -> Session {
+        let dt = DateTime::now();
+        Session {
+            path: Path::join(&config.sessions_path, format!("{}.md", dt.formatted)),
+            is_active: true,
+            start: dt.date,
+            marks: vec![],
+        }
+    }
+
     fn get_active(config: &Config) -> Result<Session, Box<dyn Error>> {
         let dir = fs::read_dir(&config.sessions_path)
             .map_err(|_err| "session directory doesn't exist")?
@@ -248,25 +259,12 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
 }
 
 fn start(config: &Config) -> Result<(), Box<dyn Error>> {
-    let StartData { path, contents } = start_get_data(config);
+    let SessionFile { path, contents } = Session::new(&config).to_file(&config)?;
     if fs::exists(&path)? {
         return Err("this session file is already created")?;
     };
     fs::write(&path, &contents).map_err(|_| "session directory doesn't exist")?;
     Ok(())
-}
-
-// TODO: remove, this is SessionFile
-struct StartData {
-    path: PathBuf,
-    contents: String,
-}
-// TODO: move into Session
-fn start_get_data(config: &Config) -> StartData {
-    let dt = DateTime::now();
-    let contents = SessionFile::get_template(&dt.formatted);
-    let path = Path::join(&config.sessions_path, format!("{}.md", dt.formatted));
-    StartData { path, contents }
 }
 
 fn stop() -> Result<(), Box<dyn Error>> {
@@ -333,16 +331,19 @@ mod tests {
     }
 
     #[test]
-    fn start_get_data_works() {
+    fn session_new_works() {
         let config = Config {
             action: Action::Start,
             sessions_path: PathBuf::from("."),
         };
-        let StartData { path, contents } = start_get_data(&config);
-        let path = path.to_str().unwrap();
-        let date = &path[2..path.len() - 3];
-        assert_eq!(path, format!("./{}.md", date));
-        assert!(contents.contains(&format!("# {}", date)));
+        let dt = DateTime::now();
+        let session = Session {
+            path: config.sessions_path.join(format!("{}.md", dt.formatted)),
+            is_active: true,
+            start: dt.date,
+            marks: vec![],
+        };
+        assert_eq!(Session::new(&config), session);
     }
 
     #[test]
