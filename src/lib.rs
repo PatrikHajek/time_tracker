@@ -100,18 +100,6 @@ impl SessionFile {
         }
         level
     }
-
-    fn get_template(date: &str) -> String {
-        format!(
-            "\
-            {SESSION_HEADING_PREFIX}{date}\n\
-            \n\
-            {MARKS_HEADING}\n\
-            \n\
-            {MARK_HEADING_PREFIX}{date}\
-            "
-        )
-    }
 }
 
 #[derive(PartialEq, Debug)]
@@ -306,6 +294,18 @@ mod tests {
 
     use super::*;
 
+    fn get_template(date: &str) -> String {
+        format!(
+            "\
+            {SESSION_HEADING_PREFIX}{date}\n\
+            \n\
+            {MARKS_HEADING}\n\
+            \n\
+            {MARK_HEADING_PREFIX}{date}\
+            "
+        )
+    }
+
     #[test]
     fn config_build_works() {
         let args = &[String::from("time_tracker"), String::from("start")];
@@ -349,7 +349,7 @@ mod tests {
     #[test]
     fn session_file_build_works() {
         let path = PathBuf::new();
-        let contents = SessionFile::get_template(&DateTime::now().formatted);
+        let contents = get_template(&DateTime::now().formatted);
         let file = SessionFile::build(&path, &contents).unwrap();
         assert_eq!(&file.contents, &contents);
     }
@@ -357,7 +357,7 @@ mod tests {
     #[test]
     fn session_file_get_heading_with_contents_works() {
         let dt = &DateTime::now();
-        let contents = SessionFile::get_template(&dt.formatted);
+        let contents = get_template(&dt.formatted);
         let heading_contents = SessionFile::get_heading_with_contents(MARKS_HEADING, &contents);
         assert_eq!(
             heading_contents,
