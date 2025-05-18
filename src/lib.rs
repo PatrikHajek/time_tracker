@@ -11,16 +11,6 @@ const SESSION_HEADING_PREFIX: &str = "# ";
 const MARKS_HEADING: &str = "## Marks";
 const MARK_HEADING_PREFIX: &str = "### ";
 
-// TODO: move to `SessionFile`
-fn get_contents(date: &str) -> String {
-    format!(
-        "\
-{SESSION_HEADING_PREFIX}{date}
-
-{MARKS_HEADING}"
-    )
-}
-
 #[derive(PartialEq, Debug)]
 pub struct Config {
     pub action: Action,
@@ -109,6 +99,18 @@ impl SessionFile {
             level += 1;
         }
         level
+    }
+
+    fn get_template(date: &str) -> String {
+        format!(
+            "\
+            {SESSION_HEADING_PREFIX}{date}\n\
+            \n\
+            {MARKS_HEADING}\n\
+            \n\
+            {MARK_HEADING_PREFIX}{date}\
+            "
+        )
     }
 }
 
@@ -262,7 +264,7 @@ struct StartData {
 // TODO: move into Session
 fn start_get_data(config: &Config) -> StartData {
     let dt = DateTime::now();
-    let contents = get_contents(&dt.formatted);
+    let contents = SessionFile::get_template(&dt.formatted);
     let path = Path::join(&config.sessions_path, format!("{}.md", dt.formatted));
     StartData { path, contents }
 }
@@ -346,16 +348,27 @@ mod tests {
     #[test]
     fn session_file_build_works() {
         let path = PathBuf::new();
-        let contents = get_contents(&DateTime::now().formatted);
+        let contents = SessionFile::get_template(&DateTime::now().formatted);
         let file = SessionFile::build(&path, &contents).unwrap();
         assert_eq!(&file.contents, &contents);
     }
 
     #[test]
     fn session_file_get_heading_with_contents_works() {
-        let contents = get_contents(&DateTime::now().formatted);
+        let dt = &DateTime::now();
+        let contents = SessionFile::get_template(&dt.formatted);
         let heading_contents = SessionFile::get_heading_with_contents(MARKS_HEADING, &contents);
-        assert_eq!(heading_contents, format!("{MARKS_HEADING}\n"));
+        assert_eq!(
+            heading_contents,
+            format!(
+                "\
+                {MARKS_HEADING}\n\
+                \n\
+                {MARK_HEADING_PREFIX}{}\
+                ",
+                dt.formatted
+            )
+        );
     }
 
     #[test]
