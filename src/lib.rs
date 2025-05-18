@@ -97,7 +97,7 @@ impl SessionFile {
             }
         }
 
-        text
+        text.trim().to_string()
     }
 
     fn get_heading_level(heading: &str) -> u8 {
@@ -207,6 +207,7 @@ struct Mark {
 
 impl Mark {
     fn build(contents: &str) -> Result<Mark, Box<dyn Error>> {
+        let contents = contents.trim();
         let date = contents
             .lines()
             .next()
