@@ -450,6 +450,31 @@ mod tests {
     }
 
     #[test]
+    fn session_to_file_and_from_file() {
+        let dt = DateTime::now();
+        let mark_first = Mark {
+            date: dt.date.with_hour(5).unwrap().with_minute(54).unwrap(),
+            contents: String::from("feat/some-branch\n\nDid a few things"),
+        };
+        let mark_second = Mark {
+            date: dt.date.with_hour(6).unwrap().with_minute(13).unwrap(),
+            contents: String::from("feat/new-feature"),
+        };
+        let config = Config {
+            action: Action::Mark,
+            sessions_path: PathBuf::from("sessions"),
+        };
+        let session = Session {
+            path: config.sessions_path.join(&format!("{}.md", dt.formatted)),
+            is_active: true,
+            start: dt.date,
+            marks: vec![mark_first, mark_second],
+        };
+        let file = session.to_file(&config).unwrap();
+        assert_eq!(Session::from_file(&file).unwrap(), session);
+    }
+
+    #[test]
     fn session_mark_works() {
         let dt = DateTime::now();
         let mut session = Session {
