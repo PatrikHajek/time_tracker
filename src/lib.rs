@@ -204,7 +204,6 @@ impl Session {
 #[derive(PartialEq, Debug)]
 struct Mark {
     date: chrono::DateTime<chrono::Local>,
-    // TODO: remove
     contents: String,
 }
 
