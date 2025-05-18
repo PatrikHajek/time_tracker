@@ -111,14 +111,17 @@ struct Session {
 }
 
 impl Session {
-    // TODO: must add 1st mark
     fn new(config: &Config) -> Session {
         let dt = DateTime::now();
+        let mark = Mark {
+            date: dt.date,
+            contents: String::new(),
+        };
         Session {
             path: Path::join(&config.sessions_path, format!("{}.md", dt.formatted)),
             is_active: true,
             start: dt.date,
-            marks: vec![],
+            marks: vec![mark],
         }
     }
 
@@ -337,11 +340,15 @@ mod tests {
             sessions_path: PathBuf::from("."),
         };
         let dt = DateTime::now();
+        let mark = Mark {
+            date: dt.date,
+            contents: String::new(),
+        };
         let session = Session {
             path: config.sessions_path.join(format!("{}.md", dt.formatted)),
             is_active: true,
             start: dt.date,
-            marks: vec![],
+            marks: vec![mark],
         };
         assert_eq!(Session::new(&config), session);
     }
