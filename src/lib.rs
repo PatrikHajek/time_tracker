@@ -381,11 +381,12 @@ mod tests {
 
         let contents = format!(
             "\
-{SESSION_HEADING_PREFIX}{formatted}
-
-{MARKS_HEADING}
-
-{MARK_HEADING_PREFIX}{}",
+                {SESSION_HEADING_PREFIX}{formatted}\n\
+                \n\
+                {MARKS_HEADING}\n\
+                \n\
+                {MARK_HEADING_PREFIX}{}\n\
+                ",
             mark_first_dt.formatted
         );
         let file = SessionFile::build(&PathBuf::new(), &contents).unwrap();
@@ -442,7 +443,7 @@ mod tests {
                     \n\
                     I am the second mark!\n\
                     Hi!\n\
-                ",
+                    ",
                 dt.formatted, mark_first_dt.formatted, mark_second_dt.formatted
             ),
         )?;
@@ -477,7 +478,7 @@ mod tests {
                 {MARK_HEADING_PREFIX}{}\n\
                 \n\
                 This is some content.\n\
-            ",
+                ",
             dt.formatted
         );
         let mark = Mark {
@@ -500,7 +501,7 @@ mod tests {
                 \n\
                 This is a content of a mark.\n\
                 How are you?\
-            ",
+                ",
             dt.formatted
         );
         assert_eq!(mark.to_string(), output);
