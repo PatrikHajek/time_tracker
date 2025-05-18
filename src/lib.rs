@@ -149,14 +149,8 @@ impl Session {
         for line in marks_contents.lines() {
             if line.starts_with(MARK_HEADING_PREFIX) {
                 let contents = SessionFile::get_heading_with_contents(&line, &marks_contents);
-                let date = contents
-                    .lines()
-                    .next()
-                    .map(|val| {
-                        chrono::DateTime::from_str(&val[MARK_HEADING_PREFIX.len()..val.len()])
-                    })
-                    .ok_or("couldn't parse mark heading")??;
-                marks.push(Mark { date, contents });
+                let mark = Mark::build(&contents)?;
+                marks.push(mark);
             }
         }
 
@@ -186,8 +180,8 @@ impl Session {
         );
         for mark in &self.marks {
             // TODO: move to Mark.string and after simplify session_to_file_works
-            contents += &mark.contents;
-            contents += "\n";
+            contents += &mark.to_string();
+            contents += "\n\n";
         }
 
         let file_name = format!("{}.md", date);
@@ -212,6 +206,36 @@ struct Mark {
     date: chrono::DateTime<chrono::Local>,
     // TODO: remove
     contents: String,
+}
+
+impl Mark {
+    fn build(contents: &str) -> Result<Mark, Box<dyn Error>> {
+        let date = contents
+            .lines()
+            .next()
+            .map(|val| chrono::DateTime::from_str(&val[MARK_HEADING_PREFIX.len()..val.len()]))
+            .ok_or("couldn't parse mark heading")??;
+        let contents_without_heading = contents
+            .lines()
+            .skip(1)
+            .fold(String::new(), |acc, val| acc + "\n" + val)
+            .trim()
+            .to_string();
+        Ok(Mark {
+            date,
+            contents: contents_without_heading,
+        })
+    }
+
+    fn to_string(&self) -> String {
+        let mut contents = format!("{MARK_HEADING_PREFIX}{}", DateTime::format(&self.date));
+        let trimmed = self.contents.trim();
+        if !trimmed.is_empty() {
+            contents += "\n\n";
+            contents += &trimmed;
+        }
+        contents
+    }
 }
 
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
@@ -352,7 +376,7 @@ mod tests {
         };
         let mark_first = Mark {
             date: mark_first_dt.date,
-            contents: format!("{MARK_HEADING_PREFIX}{}\n", mark_first_dt.formatted),
+            contents: String::new(),
         };
 
         let contents = format!(
@@ -378,20 +402,21 @@ mod tests {
     #[test]
     fn session_to_file_works() -> Result<(), Box<dyn Error>> {
         let dt = DateTime::now();
-        let mark_dt = DateTime {
+        let mark_first_dt = DateTime {
             date: dt.date.with_hour(5).unwrap(),
             formatted: DateTime::format(&dt.date.with_hour(5).unwrap()),
         };
-        let mark = Mark {
-            date: mark_dt.date,
-            contents: format!(
-                "\
-                    {MARK_HEADING_PREFIX}{}\n\
-                    \n\
-                    hello world\n\
-                ",
-                mark_dt.formatted
-            ),
+        let mark_first = Mark {
+            date: mark_first_dt.date,
+            contents: String::new(),
+        };
+        let mark_second_dt = DateTime {
+            date: mark_first_dt.date.with_minute(44).unwrap(),
+            formatted: DateTime::format(&mark_first_dt.date.with_minute(44).unwrap()),
+        };
+        let mark_second = Mark {
+            date: mark_second_dt.date,
+            contents: String::from("I am the second mark!\nHi!\n"),
         };
         let config = Config {
             action: Action::Mark,
@@ -401,7 +426,7 @@ mod tests {
             path: config.sessions_path.join(format!("{}.md", dt.formatted)),
             is_active: true,
             start: dt.date,
-            marks: vec![mark],
+            marks: vec![mark_first, mark_second],
         };
         let file = SessionFile::build(
             &session.path,
@@ -413,9 +438,12 @@ mod tests {
                     \n\
                     {MARK_HEADING_PREFIX}{}\n\
                     \n\
-                    hello world\n\
+                    {MARK_HEADING_PREFIX}{}\n\
+                    \n\
+                    I am the second mark!\n\
+                    Hi!\n\
                 ",
-                dt.formatted, mark_dt.formatted
+                dt.formatted, mark_first_dt.formatted, mark_second_dt.formatted
             ),
         )?;
 
@@ -439,6 +467,43 @@ mod tests {
         session.mark();
         assert_eq!(session.marks.len(), 1);
         assert_eq!(session.marks[0], mark);
+    }
+
+    #[test]
+    fn mark_build_works() {
+        let dt = DateTime::now();
+        let contents = format!(
+            "\
+                {MARK_HEADING_PREFIX}{}\n\
+                \n\
+                This is some content.\n\
+            ",
+            dt.formatted
+        );
+        let mark = Mark {
+            date: dt.date,
+            contents: String::from("This is some content."),
+        };
+        assert_eq!(Mark::build(&contents).unwrap(), mark);
+    }
+
+    #[test]
+    fn mark_to_string_works() {
+        let dt = DateTime::now();
+        let mark = Mark {
+            date: dt.date,
+            contents: String::from("This is a content of a mark.\nHow are you?\n"),
+        };
+        let output = format!(
+            "\
+                {MARK_HEADING_PREFIX}{}\n\
+                \n\
+                This is a content of a mark.\n\
+                How are you?\
+            ",
+            dt.formatted
+        );
+        assert_eq!(mark.to_string(), output);
     }
 
     #[test]
