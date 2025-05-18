@@ -179,7 +179,6 @@ impl Session {
             "
         );
         for mark in &self.marks {
-            // TODO: move to Mark.string and after simplify session_to_file_works
             contents += &mark.to_string();
             contents += "\n\n";
         }
