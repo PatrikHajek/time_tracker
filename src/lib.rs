@@ -195,10 +195,7 @@ impl Session {
 
     fn mark(&mut self) {
         let dt = DateTime::now();
-        let mark = Mark {
-            date: dt.date,
-            contents: format!("{MARK_HEADING_PREFIX}{}", dt.formatted),
-        };
+        let mark = Mark::new(&dt.date);
         self.marks.push(mark);
     }
 }
@@ -210,6 +207,13 @@ struct Mark {
 }
 
 impl Mark {
+    fn new(date: &chrono::DateTime<chrono::Local>) -> Mark {
+        Mark {
+            date: date.clone(),
+            contents: String::new(),
+        }
+    }
+
     fn build(contents: &str) -> Result<Mark, Box<dyn Error>> {
         let contents = contents.trim();
         let date = contents
@@ -505,13 +509,20 @@ mod tests {
             start: dt.date,
             marks: vec![],
         };
-        let mark = Mark {
-            date: dt.date,
-            contents: format!("{MARK_HEADING_PREFIX}{}", dt.formatted),
-        };
+        let mark = Mark::new(&dt.date);
         session.mark();
         assert_eq!(session.marks.len(), 1);
         assert_eq!(session.marks[0], mark);
+    }
+
+    #[test]
+    fn mark_new_works() {
+        let dt = DateTime::now();
+        let mark = Mark {
+            date: dt.date,
+            contents: String::new(),
+        };
+        assert_eq!(Mark::new(&dt.date), mark);
     }
 
     #[test]
