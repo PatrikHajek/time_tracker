@@ -10,6 +10,8 @@ use chrono::Timelike;
 const SESSION_HEADING_PREFIX: &str = "# ";
 const MARKS_HEADING: &str = "## Marks";
 const MARK_HEADING_PREFIX: &str = "### ";
+const LABEL_PREFIX: &str = "- ";
+const LABEL_END: &str = "- end";
 
 #[derive(PartialEq, Debug)]
 pub struct Config {
@@ -153,10 +155,14 @@ impl Session {
                 marks.push(mark);
             }
         }
+        let is_active = match marks.last() {
+            Some(v) => !v.has_label(&Label::End),
+            None => true,
+        };
 
         Ok(Session {
             path: file.path.clone(),
-            is_active: true,
+            is_active,
             start,
             marks,
         })
@@ -190,16 +196,28 @@ impl Session {
         Ok(file)
     }
 
-    fn mark(&mut self) {
+    fn stop(&mut self) {
+        let dt = DateTime::now();
+        let mut mark = Mark::new(&dt.date);
+        mark.add_label(&Label::End);
+        self.marks.push(mark);
+    }
+
+    fn mark(&mut self) -> Result<(), &'static str> {
+        if !self.is_active {
+            return Err("can't mark, session has already ended");
+        }
         let dt = DateTime::now();
         let mark = Mark::new(&dt.date);
         self.marks.push(mark);
+        Ok(())
     }
 }
 
 #[derive(PartialEq, Debug, Clone)]
 struct Mark {
     date: chrono::DateTime<chrono::Local>,
+    labels: Vec<Label>,
     contents: String,
 }
 
@@ -207,8 +225,17 @@ impl Mark {
     fn new(date: &chrono::DateTime<chrono::Local>) -> Mark {
         Mark {
             date: date.clone(),
+            labels: vec![],
             contents: String::new(),
         }
+    }
+
+    fn add_label(&mut self, label: &Label) {
+        self.labels.push(label.clone());
+    }
+
+    fn has_label(&self, label: &Label) -> bool {
+        self.labels.contains(&label)
     }
 
     fn from_string(contents: &str) -> Result<Mark, Box<dyn Error>> {
@@ -218,20 +245,44 @@ impl Mark {
             .next()
             .map(|val| chrono::DateTime::from_str(&val[MARK_HEADING_PREFIX.len()..val.len()]))
             .ok_or("couldn't parse mark heading")??;
-        let contents_without_heading = contents
+        let mut contents_without_heading = contents
             .lines()
             .skip(1)
             .fold(String::new(), |acc, val| acc + "\n" + val)
             .trim()
-            .to_string();
+            .to_owned();
+        let mut labels: Vec<Label> = vec![];
+        if contents_without_heading.starts_with(LABEL_PREFIX) {
+            for line in contents_without_heading.lines() {
+                if !line.starts_with(LABEL_PREFIX) {
+                    break;
+                }
+                labels.push(Label::from_string(&line)?);
+            }
+            contents_without_heading = contents_without_heading
+                .lines()
+                .skip(labels.len())
+                .collect::<Vec<&str>>()
+                .join("\n")
+                .trim()
+                .to_owned();
+        }
         Ok(Mark {
             date,
+            labels,
             contents: contents_without_heading,
         })
     }
 
     fn to_string(&self) -> String {
         let mut contents = format!("{MARK_HEADING_PREFIX}{}", DateTime::format(&self.date));
+        if !self.labels.is_empty() {
+            contents += "\n";
+            contents += &self
+                .labels
+                .iter()
+                .fold(String::new(), |acc, val| acc + "\n" + val.to_string());
+        }
         let trimmed = self.contents.trim();
         if !trimmed.is_empty() {
             contents += "\n\n";
@@ -241,10 +292,29 @@ impl Mark {
     }
 }
 
+#[derive(PartialEq, Debug, Clone)]
+enum Label {
+    End,
+}
+impl Label {
+    fn from_string(text: &str) -> Result<Label, String> {
+        match text.trim() {
+            LABEL_END => Ok(Label::End),
+            _ => Err(format!("couldn't parse label from stirng '{}'", text)),
+        }
+    }
+
+    fn to_string(&self) -> &str {
+        match self {
+            Label::End => LABEL_END,
+        }
+    }
+}
+
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     let result = match config.action {
         Action::Start => start(&config),
-        Action::Stop => stop(),
+        Action::Stop => stop(&config),
         Action::Mark => mark(&config),
     };
     Ok(result?)
@@ -259,13 +329,16 @@ fn start(config: &Config) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn stop() -> Result<(), Box<dyn Error>> {
-    todo!();
+fn stop(config: &Config) -> Result<(), Box<dyn Error>> {
+    let mut session = Session::get_active(&config)?;
+    session.stop();
+    session.save(&config)?;
+    Ok(())
 }
 
 fn mark(config: &Config) -> Result<(), Box<dyn Error>> {
     let mut session = Session::get_active(&config)?;
-    session.mark();
+    session.mark()?;
     session.save(&config)?;
     Ok(())
 }
@@ -415,6 +488,44 @@ mod tests {
     }
 
     #[test]
+    fn session_from_file_reads_active_state_of_session() {
+        let DateTime { date, formatted } = DateTime::now();
+        let mark_first_dt = DateTime {
+            date: date.with_hour(5).unwrap(),
+            formatted: DateTime::format(&date.with_hour(5).unwrap()),
+        };
+        let contents = format!(
+            "\
+                {SESSION_HEADING_PREFIX}{formatted}\n\
+                \n\
+                {MARKS_HEADING}\n\
+                \n\
+                {MARK_HEADING_PREFIX}{}\n\
+                \n\
+                {LABEL_END}\n\
+                ",
+            mark_first_dt.formatted
+        );
+        let file = SessionFile::build(&PathBuf::new(), &contents).unwrap();
+        let mark_first = Mark {
+            date: mark_first_dt.date,
+            labels: vec![Label::End],
+            contents: String::new(),
+        };
+        let session = Session {
+            path: file.path.clone(),
+            is_active: false,
+            start: date,
+            marks: vec![mark_first],
+        };
+
+        assert_eq!(Session::from_file(&file).unwrap(), session);
+    }
+
+    #[test]
+    fn session_from_file_reads_active_state_of_session_only_when_the_mark_is_last() {}
+
+    #[test]
     fn session_to_file_works() -> Result<(), Box<dyn Error>> {
         let dt = DateTime::now();
         let mark_first_dt = DateTime {
@@ -428,6 +539,7 @@ mod tests {
         };
         let mark_second = Mark {
             date: mark_second_dt.date,
+            labels: vec![],
             contents: String::from("I am the second mark!\nHi!\n"),
         };
         let config = Config {
@@ -468,10 +580,12 @@ mod tests {
         let dt = DateTime::now();
         let mark_first = Mark {
             date: dt.date.with_hour(5).unwrap().with_minute(54).unwrap(),
+            labels: vec![],
             contents: String::from("feat/some-branch\n\nDid a few things"),
         };
         let mark_second = Mark {
             date: dt.date.with_hour(6).unwrap().with_minute(13).unwrap(),
+            labels: vec![],
             contents: String::from("feat/new-feature"),
         };
         let config = Config {
@@ -489,6 +603,9 @@ mod tests {
     }
 
     #[test]
+    fn session_stop_works() {}
+
+    #[test]
     fn session_mark_works() {
         let dt = DateTime::now();
         let mut session = Session {
@@ -498,7 +615,7 @@ mod tests {
             marks: vec![],
         };
         let mark = Mark::new(&dt.date);
-        session.mark();
+        session.mark().unwrap();
         assert_eq!(session.marks.len(), 1);
         assert_eq!(session.marks[0], mark);
     }
@@ -515,11 +632,14 @@ mod tests {
             marks: vec![mark_first, mark_second],
         };
         let mut clone = session.clone();
-        session.mark();
+        session.mark().unwrap();
         assert_eq!(session.marks.len(), 3);
         clone.marks.push(session.marks[2].clone());
         assert_eq!(session, clone);
     }
+
+    #[test]
+    fn cannot_mark_when_session_ended() {}
 
     #[test]
     fn mark_new_works() {
@@ -529,11 +649,19 @@ mod tests {
     }
 
     #[test]
+    fn mark_add_label_works() {}
+
+    #[test]
+    fn mark_has_label_works() {}
+
+    #[test]
     fn mark_from_string_works() {
         let dt = DateTime::now();
         let contents = format!(
             "\
                 {MARK_HEADING_PREFIX}{}\n\
+                \n\
+                {LABEL_END}\n\
                 \n\
                 This is some content.\n\
                 ",
@@ -541,6 +669,7 @@ mod tests {
         );
         let mark = Mark {
             date: dt.date,
+            labels: vec![Label::End],
             contents: String::from("This is some content."),
         };
         assert_eq!(Mark::from_string(&contents).unwrap(), mark);
@@ -551,11 +680,14 @@ mod tests {
         let dt = DateTime::now();
         let mark = Mark {
             date: dt.date,
+            labels: vec![Label::End],
             contents: String::from("This is a content of a mark.\nHow are you?\n"),
         };
         let output = format!(
             "\
                 {MARK_HEADING_PREFIX}{}\n\
+                \n\
+                {LABEL_END}\n\
                 \n\
                 This is a content of a mark.\n\
                 How are you?\
@@ -564,6 +696,12 @@ mod tests {
         );
         assert_eq!(mark.to_string(), output);
     }
+
+    #[test]
+    fn label_from_string_works() {}
+
+    #[test]
+    fn label_to_string_works() {}
 
     #[test]
     fn date_time_now_works() {
