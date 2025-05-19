@@ -113,10 +113,7 @@ struct Session {
 impl Session {
     fn new(config: &Config) -> Session {
         let dt = DateTime::now();
-        let mark = Mark {
-            date: dt.date,
-            contents: String::new(),
-        };
+        let mark = Mark::new(&dt.date);
         Session {
             path: Path::join(&config.sessions_path, format!("{}.md", dt.formatted)),
             is_active: true,
@@ -344,10 +341,7 @@ mod tests {
             sessions_path: PathBuf::from("."),
         };
         let dt = DateTime::now();
-        let mark = Mark {
-            date: dt.date,
-            contents: String::new(),
-        };
+        let mark = Mark::new(&dt.date);
         let session = Session {
             path: config.sessions_path.join(format!("{}.md", dt.formatted)),
             is_active: true,
@@ -397,10 +391,7 @@ mod tests {
             date: date.with_hour(5).unwrap(),
             formatted: DateTime::format(&date.with_hour(5).unwrap()),
         };
-        let mark_first = Mark {
-            date: mark_first_dt.date,
-            contents: String::new(),
-        };
+        let mark_first = Mark::new(&mark_first_dt.date);
 
         let contents = format!(
             "\
@@ -430,10 +421,7 @@ mod tests {
             date: dt.date.with_hour(5).unwrap(),
             formatted: DateTime::format(&dt.date.with_hour(5).unwrap()),
         };
-        let mark_first = Mark {
-            date: mark_first_dt.date,
-            contents: String::new(),
-        };
+        let mark_first = Mark::new(&mark_first_dt.date);
         let mark_second_dt = DateTime {
             date: mark_first_dt.date.with_minute(44).unwrap(),
             formatted: DateTime::format(&mark_first_dt.date.with_minute(44).unwrap()),
@@ -536,10 +524,7 @@ mod tests {
     #[test]
     fn mark_new_works() {
         let dt = DateTime::now();
-        let mark = Mark {
-            date: dt.date,
-            contents: String::new(),
-        };
+        let mark = Mark::new(&dt.date);
         assert_eq!(Mark::new(&dt.date), mark);
     }
 
