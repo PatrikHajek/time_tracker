@@ -102,7 +102,7 @@ impl SessionFile {
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 struct Session {
     path: PathBuf,
     is_active: bool,
@@ -200,7 +200,7 @@ impl Session {
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 struct Mark {
     date: chrono::DateTime<chrono::Local>,
     contents: String,
@@ -513,6 +513,24 @@ mod tests {
         session.mark();
         assert_eq!(session.marks.len(), 1);
         assert_eq!(session.marks[0], mark);
+    }
+
+    #[test]
+    fn session_mark_preserves_integrity_of_previous_content() {
+        let dt = DateTime::now();
+        let mark_first = Mark::new(&dt.date.with_hour(14).unwrap());
+        let mark_second = Mark::new(&mark_first.date.with_minute(47).unwrap());
+        let mut session = Session {
+            path: PathBuf::from(format!("./sessions/{}.md", dt.formatted)),
+            is_active: true,
+            start: dt.date,
+            marks: vec![mark_first, mark_second],
+        };
+        let mut clone = session.clone();
+        session.mark();
+        assert_eq!(session.marks.len(), 3);
+        clone.marks.push(session.marks[2].clone());
+        assert_eq!(session, clone);
     }
 
     #[test]
