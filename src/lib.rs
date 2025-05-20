@@ -201,6 +201,7 @@ impl Session {
         let mut mark = Mark::new(&dt.date);
         mark.add_label(&Label::End);
         self.marks.push(mark);
+        self.is_active = false;
     }
 
     fn mark(&mut self) -> Result<(), &'static str> {
@@ -603,7 +604,21 @@ mod tests {
     }
 
     #[test]
-    fn session_stop_works() {}
+    fn session_stop_works() {
+        let config = Config {
+            action: Action::Stop,
+            sessions_path: PathBuf::from("sessions"),
+        };
+        let mut session = Session::new(&config);
+        let mut clone = session.clone();
+        session.stop();
+        let dt = DateTime::now();
+        let mut mark = Mark::new(&dt.date);
+        mark.add_label(&Label::End);
+        clone.marks.push(mark);
+        clone.is_active = false;
+        assert_eq!(session, clone);
+    }
 
     #[test]
     fn session_mark_works() {
