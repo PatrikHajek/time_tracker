@@ -713,10 +713,22 @@ mod tests {
     }
 
     #[test]
-    fn label_from_string_works() {}
+    fn label_from_string_works() {
+        assert_eq!(Label::from_string(LABEL_END).unwrap(), Label::End);
+        assert!(Label::from_string("some string").is_err())
+    }
 
     #[test]
-    fn label_to_string_works() {}
+    fn label_to_string_works() {
+        assert_eq!(Label::End.to_string(), LABEL_END);
+    }
+
+    #[test]
+    fn label_to_string_and_from_string() {
+        let label = Label::End;
+        let as_string = label.to_string();
+        assert_eq!(Label::from_string(&as_string).unwrap(), label);
+    }
 
     #[test]
     fn date_time_now_works() {
