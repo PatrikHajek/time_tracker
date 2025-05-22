@@ -112,6 +112,7 @@ struct Session {
     marks: Vec<Mark>,
 }
 
+// TODO: sort methods (don't forget about tests)
 impl Session {
     fn new(config: &Config) -> Session {
         let dt = DateTime::now();
