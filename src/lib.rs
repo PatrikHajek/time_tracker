@@ -655,7 +655,17 @@ mod tests {
     }
 
     #[test]
-    fn cannot_mark_when_session_ended() {}
+    fn cannot_mark_when_session_ended() {
+        let config = Config {
+            action: Action::Mark,
+            sessions_path: PathBuf::from("sessions"),
+        };
+        let mut session = Session::new(&config);
+        session.stop();
+        let clone = session.clone();
+        assert!(session.mark().is_err());
+        assert_eq!(session, clone);
+    }
 
     #[test]
     fn mark_new_works() {
