@@ -665,10 +665,25 @@ mod tests {
     }
 
     #[test]
-    fn mark_add_label_works() {}
+    fn mark_add_label_works() {
+        let dt = DateTime::now();
+        let mut mark = Mark::new(&dt.date);
+        mark.add_label(&Label::End);
+        let expected = Mark {
+            date: dt.date,
+            labels: vec![Label::End],
+            contents: String::new(),
+        };
+        assert_eq!(mark, expected);
+    }
 
     #[test]
-    fn mark_has_label_works() {}
+    fn mark_has_label_works() {
+        let dt = DateTime::now();
+        let mut mark = Mark::new(&dt.date);
+        mark.add_label(&Label::End);
+        assert!(mark.has_label(&Label::End));
+    }
 
     #[test]
     fn mark_from_string_works() {
