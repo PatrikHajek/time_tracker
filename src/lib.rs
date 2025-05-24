@@ -125,18 +125,19 @@ impl Session {
         }
     }
 
-    fn get_active(config: &Config) -> Result<Session, Box<dyn Error>> {
+    fn get_last(config: &Config) -> Result<Option<Session>, Box<dyn Error>> {
         let dir = fs::read_dir(&config.sessions_path)
             .map_err(|_err| "session directory doesn't exist")?
             .map(|res| res.map(|v| v.path()))
             .collect::<Result<Vec<_>, io::Error>>()?;
         if dir.len() == 0 {
-            return Err("there is no active session")?;
+            return Ok(None);
         }
         let path = &dir[dir.len() - 1];
         let contents = fs::read_to_string(&path)?;
         let file = SessionFile::build(&path, &contents)?;
-        Session::from_file(&file)
+        let session = Session::from_file(&file)?;
+        Ok(Some(session))
     }
 
     fn from_file(file: &SessionFile) -> Result<Session, Box<dyn Error>> {
@@ -327,6 +328,12 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
 }
 
 fn start(config: &Config) -> Result<(), Box<dyn Error>> {
+    if let Some(session) = Session::get_last(&config)? {
+        if session.is_active {
+            return Err("another session is already active")?;
+        }
+    }
+
     let session = Session::new(&config);
     let SessionFile { path, contents } = session.to_file(&config)?;
     if fs::exists(&path)? {
@@ -338,7 +345,9 @@ fn start(config: &Config) -> Result<(), Box<dyn Error>> {
 }
 
 fn stop(config: &Config) -> Result<(), Box<dyn Error>> {
-    let mut session = Session::get_active(&config)?;
+    let Some(mut session) = Session::get_last(&config)? else {
+        return Err("no active session found")?;
+    };
     session.stop()?;
     session.save(&config)?;
     let mark = session.marks.last().expect("Last mark was just added");
@@ -347,7 +356,9 @@ fn stop(config: &Config) -> Result<(), Box<dyn Error>> {
 }
 
 fn mark(config: &Config) -> Result<(), Box<dyn Error>> {
-    let mut session = Session::get_active(&config)?;
+    let Some(mut session) = Session::get_last(&config)? else {
+        return Err("no active session found")?;
+    };
     session.mark()?;
     session.save(&config)?;
     let mark = session.marks.last().expect("Last mark was just added");
