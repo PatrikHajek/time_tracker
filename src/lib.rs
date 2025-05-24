@@ -650,7 +650,9 @@ mod tests {
         };
         let mut session = Session::new(&config);
         session.stop().unwrap();
+        let clone = session.clone();
         assert!(session.stop().is_err());
+        assert_eq!(session, clone);
     }
 
     #[test]
