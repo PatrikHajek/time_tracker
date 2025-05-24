@@ -38,6 +38,7 @@ pub enum Action {
     Start,
     Stop,
     Mark,
+    Path,
     // Set,
     // View
 }
@@ -48,6 +49,7 @@ impl Action {
             "start" => Action::Start,
             "stop" => Action::Stop,
             "mark" => Action::Mark,
+            "path" => Action::Path,
             name => return Err(format!("unrecognized command `{name}`")),
         };
         Ok(out)
@@ -322,6 +324,7 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
         Action::Start => start(&config),
         Action::Stop => stop(&config),
         Action::Mark => mark(&config),
+        Action::Path => path(&config),
     };
     Ok(result?)
 }
@@ -362,6 +365,14 @@ fn mark(config: &Config) -> Result<(), Box<dyn Error>> {
     session.save(&config)?;
     let mark = session.marks.last().expect("Last mark was just added");
     println!("Marked: {}", DateTime::format(&mark.date));
+    Ok(())
+}
+
+fn path(config: &Config) -> Result<(), Box<dyn Error>> {
+    let Some(session) = Session::get_last(&config)? else {
+        return Err("no active session found")?;
+    };
+    print!("{}", session.path.to_str().ok_or("failed to convert path")?);
     Ok(())
 }
 
@@ -423,6 +434,7 @@ mod tests {
         assert_eq!(Action::build("start")?, Action::Start);
         assert_eq!(Action::build("stop")?, Action::Stop);
         assert_eq!(Action::build("mark")?, Action::Mark);
+        assert_eq!(Action::build("path")?, Action::Path);
 
         assert!(Action::build("some string").is_err());
 
