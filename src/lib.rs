@@ -323,11 +323,13 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
 }
 
 fn start(config: &Config) -> Result<(), Box<dyn Error>> {
-    let SessionFile { path, contents } = Session::new(&config).to_file(&config)?;
+    let session = Session::new(&config);
+    let SessionFile { path, contents } = session.to_file(&config)?;
     if fs::exists(&path)? {
         return Err("this session file is already created")?;
     };
     fs::write(&path, &contents).map_err(|_| "session directory doesn't exist")?;
+    println!("Started: {}", DateTime::format(&session.start));
     Ok(())
 }
 
@@ -335,6 +337,8 @@ fn stop(config: &Config) -> Result<(), Box<dyn Error>> {
     let mut session = Session::get_active(&config)?;
     session.stop();
     session.save(&config)?;
+    let mark = session.marks.last().expect("Last mark was just added");
+    println!("Stopped: {}", DateTime::format(&mark.date));
     Ok(())
 }
 
@@ -342,6 +346,8 @@ fn mark(config: &Config) -> Result<(), Box<dyn Error>> {
     let mut session = Session::get_active(&config)?;
     session.mark()?;
     session.save(&config)?;
+    let mark = session.marks.last().expect("Last mark was just added");
+    println!("Marked: {}", DateTime::format(&mark.date));
     Ok(())
 }
 
