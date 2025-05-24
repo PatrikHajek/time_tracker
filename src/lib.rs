@@ -112,7 +112,6 @@ struct Session {
     marks: Vec<Mark>,
 }
 
-// TODO: sort methods (don't forget about tests)
 impl Session {
     fn new(config: &Config) -> Session {
         let dt = DateTime::now();
@@ -138,6 +137,34 @@ impl Session {
         let file = SessionFile::build(&path, &contents)?;
         let session = Session::from_file(&file)?;
         Ok(Some(session))
+    }
+
+    fn stop(&mut self) -> Result<(), &'static str> {
+        if !self.is_active {
+            return Err("session already ended");
+        }
+        let dt = DateTime::now();
+        let mut mark = Mark::new(&dt.date);
+        mark.add_label(&Label::End);
+        self.marks.push(mark);
+        self.is_active = false;
+        Ok(())
+    }
+
+    fn mark(&mut self) -> Result<(), &'static str> {
+        if !self.is_active {
+            return Err("can't mark, session has already ended");
+        }
+        let dt = DateTime::now();
+        let mark = Mark::new(&dt.date);
+        self.marks.push(mark);
+        Ok(())
+    }
+
+    fn save(&self, config: &Config) -> Result<(), Box<dyn Error>> {
+        let file = self.to_file(&config)?;
+        fs::write(&file.path, &file.contents).map_err(|e| format!("coudln't save session: {e}"))?;
+        Ok(())
     }
 
     fn from_file(file: &SessionFile) -> Result<Session, Box<dyn Error>> {
@@ -170,12 +197,6 @@ impl Session {
         })
     }
 
-    fn save(&self, config: &Config) -> Result<(), Box<dyn Error>> {
-        let file = self.to_file(&config)?;
-        fs::write(&file.path, &file.contents).map_err(|e| format!("coudln't save session: {e}"))?;
-        Ok(())
-    }
-
     fn to_file(&self, config: &Config) -> Result<SessionFile, &'static str> {
         let date = DateTime::format(&self.start);
         let mut contents = format!(
@@ -196,28 +217,6 @@ impl Session {
 
         let file = SessionFile::build(&path, &contents)?;
         Ok(file)
-    }
-
-    fn stop(&mut self) -> Result<(), &'static str> {
-        if !self.is_active {
-            return Err("session already ended");
-        }
-        let dt = DateTime::now();
-        let mut mark = Mark::new(&dt.date);
-        mark.add_label(&Label::End);
-        self.marks.push(mark);
-        self.is_active = false;
-        Ok(())
-    }
-
-    fn mark(&mut self) -> Result<(), &'static str> {
-        if !self.is_active {
-            return Err("can't mark, session has already ended");
-        }
-        let dt = DateTime::now();
-        let mark = Mark::new(&dt.date);
-        self.marks.push(mark);
-        Ok(())
     }
 }
 
@@ -431,23 +430,6 @@ mod tests {
     }
 
     #[test]
-    fn session_new_works() {
-        let config = Config {
-            action: Action::Start,
-            sessions_path: PathBuf::from("."),
-        };
-        let dt = DateTime::now();
-        let mark = Mark::new(&dt.date);
-        let session = Session {
-            path: config.sessions_path.join(format!("{}.md", dt.formatted)),
-            is_active: true,
-            start: dt.date,
-            marks: vec![mark],
-        };
-        assert_eq!(Session::new(&config), session);
-    }
-
-    #[test]
     fn session_file_build_works() {
         let path = PathBuf::new();
         let contents = get_template(&DateTime::now().formatted);
@@ -478,6 +460,99 @@ mod tests {
         assert_eq!(SessionFile::get_heading_level("# Heading"), 1);
         assert_eq!(SessionFile::get_heading_level("## Heading"), 2);
         assert_eq!(SessionFile::get_heading_level("##### Heading"), 5);
+    }
+
+    #[test]
+    fn session_new_works() {
+        let config = Config {
+            action: Action::Start,
+            sessions_path: PathBuf::from("."),
+        };
+        let dt = DateTime::now();
+        let mark = Mark::new(&dt.date);
+        let session = Session {
+            path: config.sessions_path.join(format!("{}.md", dt.formatted)),
+            is_active: true,
+            start: dt.date,
+            marks: vec![mark],
+        };
+        assert_eq!(Session::new(&config), session);
+    }
+
+    #[test]
+    fn session_stop_works() {
+        let config = Config {
+            action: Action::Stop,
+            sessions_path: PathBuf::from("sessions"),
+        };
+        let mut session = Session::new(&config);
+        let mut clone = session.clone();
+        session.stop().unwrap();
+        let dt = DateTime::now();
+        let mut mark = Mark::new(&dt.date);
+        mark.add_label(&Label::End);
+        clone.marks.push(mark);
+        clone.is_active = false;
+        assert_eq!(session, clone);
+    }
+
+    #[test]
+    fn cannot_stop_when_session_ended() {
+        let config = Config {
+            action: Action::Stop,
+            sessions_path: PathBuf::from("sessions"),
+        };
+        let mut session = Session::new(&config);
+        session.stop().unwrap();
+        let clone = session.clone();
+        assert!(session.stop().is_err());
+        assert_eq!(session, clone);
+    }
+
+    #[test]
+    fn session_mark_works() {
+        let dt = DateTime::now();
+        let mut session = Session {
+            path: PathBuf::new(),
+            is_active: true,
+            start: dt.date,
+            marks: vec![],
+        };
+        let mark = Mark::new(&dt.date);
+        session.mark().unwrap();
+        assert_eq!(session.marks.len(), 1);
+        assert_eq!(session.marks[0], mark);
+    }
+
+    #[test]
+    fn session_mark_preserves_integrity_of_previous_content() {
+        let dt = DateTime::now();
+        let mark_first = Mark::new(&dt.date.with_hour(14).unwrap());
+        let mark_second = Mark::new(&mark_first.date.with_minute(47).unwrap());
+        let mut session = Session {
+            path: PathBuf::from(format!("./sessions/{}.md", dt.formatted)),
+            is_active: true,
+            start: dt.date,
+            marks: vec![mark_first, mark_second],
+        };
+        let mut clone = session.clone();
+        session.mark().unwrap();
+        assert_eq!(session.marks.len(), 3);
+        clone.marks.push(session.marks[2].clone());
+        assert_eq!(session, clone);
+    }
+
+    #[test]
+    fn cannot_mark_when_session_ended() {
+        let config = Config {
+            action: Action::Mark,
+            sessions_path: PathBuf::from("sessions"),
+        };
+        let mut session = Session::new(&config);
+        session.stop().unwrap();
+        let clone = session.clone();
+        assert!(session.mark().is_err());
+        assert_eq!(session, clone);
     }
 
     #[test]
@@ -623,82 +698,6 @@ mod tests {
         };
         let file = session.to_file(&config).unwrap();
         assert_eq!(Session::from_file(&file).unwrap(), session);
-    }
-
-    #[test]
-    fn session_stop_works() {
-        let config = Config {
-            action: Action::Stop,
-            sessions_path: PathBuf::from("sessions"),
-        };
-        let mut session = Session::new(&config);
-        let mut clone = session.clone();
-        session.stop().unwrap();
-        let dt = DateTime::now();
-        let mut mark = Mark::new(&dt.date);
-        mark.add_label(&Label::End);
-        clone.marks.push(mark);
-        clone.is_active = false;
-        assert_eq!(session, clone);
-    }
-
-    #[test]
-    fn cannot_stop_when_session_ended() {
-        let config = Config {
-            action: Action::Stop,
-            sessions_path: PathBuf::from("sessions"),
-        };
-        let mut session = Session::new(&config);
-        session.stop().unwrap();
-        let clone = session.clone();
-        assert!(session.stop().is_err());
-        assert_eq!(session, clone);
-    }
-
-    #[test]
-    fn session_mark_works() {
-        let dt = DateTime::now();
-        let mut session = Session {
-            path: PathBuf::new(),
-            is_active: true,
-            start: dt.date,
-            marks: vec![],
-        };
-        let mark = Mark::new(&dt.date);
-        session.mark().unwrap();
-        assert_eq!(session.marks.len(), 1);
-        assert_eq!(session.marks[0], mark);
-    }
-
-    #[test]
-    fn session_mark_preserves_integrity_of_previous_content() {
-        let dt = DateTime::now();
-        let mark_first = Mark::new(&dt.date.with_hour(14).unwrap());
-        let mark_second = Mark::new(&mark_first.date.with_minute(47).unwrap());
-        let mut session = Session {
-            path: PathBuf::from(format!("./sessions/{}.md", dt.formatted)),
-            is_active: true,
-            start: dt.date,
-            marks: vec![mark_first, mark_second],
-        };
-        let mut clone = session.clone();
-        session.mark().unwrap();
-        assert_eq!(session.marks.len(), 3);
-        clone.marks.push(session.marks[2].clone());
-        assert_eq!(session, clone);
-    }
-
-    #[test]
-    fn cannot_mark_when_session_ended() {
-        let config = Config {
-            action: Action::Mark,
-            sessions_path: PathBuf::from("sessions"),
-        };
-        let mut session = Session::new(&config);
-        session.stop().unwrap();
-        let clone = session.clone();
-        assert!(session.mark().is_err());
-        assert_eq!(session, clone);
     }
 
     #[test]
