@@ -197,12 +197,16 @@ impl Session {
         Ok(file)
     }
 
-    fn stop(&mut self) {
+    fn stop(&mut self) -> Result<(), &'static str> {
+        if !self.is_active {
+            return Err("session already ended");
+        }
         let dt = DateTime::now();
         let mut mark = Mark::new(&dt.date);
         mark.add_label(&Label::End);
         self.marks.push(mark);
         self.is_active = false;
+        Ok(())
     }
 
     fn mark(&mut self) -> Result<(), &'static str> {
@@ -335,7 +339,7 @@ fn start(config: &Config) -> Result<(), Box<dyn Error>> {
 
 fn stop(config: &Config) -> Result<(), Box<dyn Error>> {
     let mut session = Session::get_active(&config)?;
-    session.stop();
+    session.stop()?;
     session.save(&config)?;
     let mark = session.marks.last().expect("Last mark was just added");
     println!("Stopped: {}", DateTime::format(&mark.date));
@@ -618,13 +622,24 @@ mod tests {
         };
         let mut session = Session::new(&config);
         let mut clone = session.clone();
-        session.stop();
+        session.stop().unwrap();
         let dt = DateTime::now();
         let mut mark = Mark::new(&dt.date);
         mark.add_label(&Label::End);
         clone.marks.push(mark);
         clone.is_active = false;
         assert_eq!(session, clone);
+    }
+
+    #[test]
+    fn cannot_stop_when_session_ended() {
+        let config = Config {
+            action: Action::Stop,
+            sessions_path: PathBuf::from("sessions"),
+        };
+        let mut session = Session::new(&config);
+        session.stop().unwrap();
+        assert!(session.stop().is_err());
     }
 
     #[test]
@@ -667,7 +682,7 @@ mod tests {
             sessions_path: PathBuf::from("sessions"),
         };
         let mut session = Session::new(&config);
-        session.stop();
+        session.stop().unwrap();
         let clone = session.clone();
         assert!(session.mark().is_err());
         assert_eq!(session, clone);
