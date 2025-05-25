@@ -1,4 +1,5 @@
 use std::{
+    env,
     error::Error,
     fs, io,
     path::{Path, PathBuf},
@@ -6,6 +7,9 @@ use std::{
 };
 
 use chrono::Timelike;
+
+const CONFIG_PATH: &str = "~/.timetracker.toml";
+const CONFIG_SESSIONS_PATH: &str = "sessions_path";
 
 const SESSION_HEADING_PREFIX: &str = "# ";
 const MARKS_HEADING: &str = "## Marks";
@@ -20,16 +24,56 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn build(args: &[String]) -> Result<Config, String> {
+    pub fn build(args: &[String]) -> Result<Config, Box<dyn Error>> {
+        let from_args = Config::from_args(&args)?;
+        let path = resolve_path(CONFIG_PATH)?;
+        let contents = match fs::read_to_string(&path) {
+            Ok(val) => val,
+            Err(err) => {
+                if err.kind() == io::ErrorKind::NotFound {
+                    let contents = format!("{CONFIG_SESSIONS_PATH}=''");
+                    fs::write(&path, &contents)?;
+                    return Err(format!(
+                        "config file not found, created one at `{CONFIG_PATH}`"
+                    ))?;
+                }
+                return Err(err)?;
+            }
+        };
+        let from_file = Config::from_file(&contents)?;
+        let config = Config {
+            action: from_args.action,
+            sessions_path: from_file.sessions_path,
+        };
+        Ok(config)
+    }
+
+    pub fn from_args(args: &[String]) -> Result<Config, String> {
         if args.len() < 2 {
-            return Err(String::from("not enough arguments"));
+            return Err("not enough arguments")?;
         }
 
         let action = Action::build(&args[1])?;
-        Ok(Config {
+        let config = Config {
             action,
-            sessions_path: PathBuf::from("./sessions"),
-        })
+            sessions_path: PathBuf::from(""),
+        };
+        Ok(config)
+    }
+
+    fn from_file(contents: &str) -> Result<Config, String> {
+        let contents = contents.trim();
+        if !contents.starts_with(&format!("{CONFIG_SESSIONS_PATH}='")) || !contents.ends_with("'") {
+            return Err(format!(
+                "wrong config file format, please use `{CONFIG_SESSIONS_PATH}='<path>'`"
+            ))?;
+        }
+        let sessions_path = resolve_path(&contents[15..contents.len() - 1])?;
+        let config = Config {
+            action: Action::Start,
+            sessions_path,
+        };
+        Ok(config)
     }
 }
 
@@ -444,6 +488,21 @@ impl DateTime {
     }
 }
 
+fn resolve_path(path: &str) -> Result<PathBuf, &'static str> {
+    let path = path.trim();
+    if path.starts_with("~") {
+        if !path.starts_with("~/") {
+            return Err("invalid path, `~` is not followed by `/`");
+        }
+        let Ok(home) = env::var("HOME") else {
+            return Err("failed to interpret environment variable HOME");
+        };
+        let path = PathBuf::from(home).join(&path[2..]);
+        return Ok(path);
+    }
+    Ok(PathBuf::from(path))
+}
+
 #[cfg(test)]
 mod tests {
     use chrono::Datelike;
@@ -463,16 +522,24 @@ mod tests {
     }
 
     #[test]
-    fn config_build_works() {
+    fn config_from_args_works() {
         let args = &[String::from("time_tracker"), String::from("start")];
-        let result = Config::build(args).unwrap();
-        assert_eq!(
-            result,
-            Config {
-                action: Action::Start,
-                sessions_path: PathBuf::from("./sessions")
-            }
-        );
+        let config = Config {
+            action: Action::Start,
+            sessions_path: PathBuf::from(""),
+        };
+        assert_eq!(Config::from_args(args).unwrap(), config);
+    }
+
+    #[test]
+    fn config_from_file_works() {
+        let path = "./notes/sessions";
+        let contents = format!("{CONFIG_SESSIONS_PATH}='{path}'");
+        let config = Config {
+            action: Action::Start,
+            sessions_path: PathBuf::from(&path),
+        };
+        assert_eq!(Config::from_file(&contents).unwrap(), config);
     }
 
     #[test]
