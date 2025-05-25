@@ -39,8 +39,8 @@ pub enum Action {
     Stop,
     Mark,
     Path,
+    View,
     // Set,
-    // View
 }
 
 impl Action {
@@ -50,6 +50,7 @@ impl Action {
             "stop" => Action::Stop,
             "mark" => Action::Mark,
             "path" => Action::Path,
+            "view" => Action::View,
             name => return Err(format!("unrecognized command `{name}`")),
         };
         Ok(out)
@@ -126,6 +127,13 @@ impl Session {
         }
     }
 
+    fn end(&self) -> chrono::DateTime<chrono::Local> {
+        self.marks
+            .last()
+            .expect("session must have at least one mark")
+            .date
+    }
+
     fn get_last(config: &Config) -> Result<Option<Session>, Box<dyn Error>> {
         let dir = fs::read_dir(&config.sessions_path)
             .map_err(|_err| "session directory doesn't exist")?
@@ -163,6 +171,16 @@ impl Session {
         Ok(())
     }
 
+    fn view(&self) -> String {
+        let time = DateTime::get_time_hr(&self.start, &self.end());
+        let mut str = String::new();
+        if !self.is_active {
+            str += "No active session, last session:\n";
+        }
+        str += &format!("Time: {time}");
+        str
+    }
+
     fn save(&self, config: &Config) -> Result<(), Box<dyn Error>> {
         let file = self.to_file(&config)?;
         fs::write(&file.path, &file.contents).map_err(|e| format!("coudln't save session: {e}"))?;
@@ -185,6 +203,9 @@ impl Session {
                 let mark = Mark::from_string(&contents)?;
                 marks.push(mark);
             }
+        }
+        if marks.is_empty() {
+            return Err("there must be at least one mark for a session to be valid")?;
         }
         let is_active = match marks.last() {
             Some(v) => !v.has_label(&Label::End),
@@ -325,6 +346,7 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
         Action::Stop => stop(&config),
         Action::Mark => mark(&config),
         Action::Path => path(&config),
+        Action::View => view(&config),
     };
     Ok(result?)
 }
@@ -376,6 +398,14 @@ fn path(config: &Config) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+fn view(config: &Config) -> Result<(), Box<dyn Error>> {
+    let Some(session) = Session::get_last(&config)? else {
+        return Err("no active session found")?;
+    };
+    println!("{}", session.view());
+    Ok(())
+}
+
 struct DateTime {
     date: chrono::DateTime<chrono::Local>,
     formatted: String,
@@ -395,6 +425,21 @@ impl DateTime {
 
     fn format(date: &chrono::DateTime<chrono::Local>) -> String {
         date.format("%FT%T%:z").to_string()
+    }
+
+    fn get_time_hr(
+        start: &chrono::DateTime<chrono::Local>,
+        end: &chrono::DateTime<chrono::Local>,
+    ) -> String {
+        let mut timestamp = (end.timestamp_millis() - start.timestamp_millis()) / 1000;
+        assert!(timestamp >= 0);
+        const UNIT: i64 = 60;
+        let seconds = timestamp % UNIT;
+        timestamp /= UNIT;
+        let minutes = timestamp % UNIT;
+        timestamp /= UNIT;
+        let hours = timestamp;
+        format!("{hours}h {minutes}m {seconds}s")
     }
 }
 
@@ -492,6 +537,18 @@ mod tests {
     }
 
     #[test]
+    fn session_end_works() {
+        let config = Config {
+            action: Action::Start,
+            sessions_path: PathBuf::from("sessions"),
+        };
+        let mut session = Session::new(&config);
+        assert_eq!(session.end(), session.marks.last().unwrap().date);
+        session.stop().unwrap();
+        assert_eq!(session.end(), session.marks.last().unwrap().date);
+    }
+
+    #[test]
     fn session_stop_works() {
         let config = Config {
             action: Action::Stop,
@@ -568,6 +625,45 @@ mod tests {
     }
 
     #[test]
+    fn session_view_works() {
+        let dt = DateTime::now();
+        let mark_start = Mark::new(
+            &dt.date
+                .with_hour(10)
+                .unwrap()
+                .with_minute(6)
+                .unwrap()
+                .with_second(24)
+                .unwrap(),
+        );
+        let mark_end = Mark::new(
+            &dt.date
+                .with_hour(12)
+                .unwrap()
+                .with_minute(15)
+                .unwrap()
+                .with_second(39)
+                .unwrap(),
+        );
+        let mut session = Session {
+            path: PathBuf::from("sessions"),
+            is_active: true,
+            start: mark_start.date,
+            marks: vec![mark_start.clone(), mark_end.clone()],
+        };
+        assert_eq!(session.view(), "Time: 2h 9m 15s");
+
+        session.marks.pop();
+        session.stop().unwrap();
+        let mark = &mut session.marks[1];
+        mark.date = mark_end.date;
+        assert_eq!(
+            session.view(),
+            "No active session, last session:\nTime: 2h 9m 15s"
+        );
+    }
+
+    #[test]
     fn session_from_file_works() {
         let DateTime { date, formatted } = DateTime::now();
         let mark_first_dt = DateTime {
@@ -634,6 +730,20 @@ mod tests {
 
     #[test]
     fn session_from_file_reads_active_state_of_session_only_when_the_mark_is_last() {}
+
+    #[test]
+    fn session_from_file_fails_when_there_is_no_mark() {
+        let DateTime { formatted, .. } = DateTime::now();
+        let contents = format!(
+            "\
+                {SESSION_HEADING_PREFIX}{formatted}\n\
+                \n\
+                {MARKS_HEADING}\n\
+                ",
+        );
+        let file = SessionFile::build(&PathBuf::from("sessions"), &contents).unwrap();
+        assert!(Session::from_file(&file).is_err());
+    }
 
     #[test]
     fn session_to_file_works() -> Result<(), Box<dyn Error>> {
@@ -816,5 +926,44 @@ mod tests {
         assert_eq!(date.offset(), now.offset());
 
         assert_eq!(formatted, DateTime::format(&date));
+    }
+
+    #[test]
+    fn date_time_get_time_hr_works() {
+        let start = DateTime::now()
+            .date
+            .with_year(2000)
+            .unwrap()
+            .with_month(1)
+            .unwrap()
+            .with_day(1)
+            .unwrap()
+            .with_hour(0)
+            .unwrap()
+            .with_minute(0)
+            .unwrap()
+            .with_second(0)
+            .unwrap();
+        let end = start
+            // 7*31*24=5208h
+            // 4*30*24=2880h
+            // 1*29*24=0696h
+            .with_year(2001)
+            .unwrap()
+            // +744h
+            .with_month(2)
+            .unwrap()
+            // +24h
+            .with_day(2)
+            .unwrap()
+            // +2h
+            .with_hour(2)
+            .unwrap()
+            .with_minute(2)
+            .unwrap()
+            .with_second(2)
+            .unwrap();
+        let text = "9554h 2m 2s";
+        assert_eq!(DateTime::get_time_hr(&start, &end), text);
     }
 }
