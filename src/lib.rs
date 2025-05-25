@@ -340,6 +340,7 @@ impl Label {
     }
 }
 
+// TODO: put all these functions inside Action?
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     let result = match config.action {
         Action::Start => start(&config),
