@@ -68,7 +68,11 @@ impl Config {
                 "wrong config file format, please use `{CONFIG_SESSIONS_PATH}='<path>'`"
             ))?;
         }
-        let sessions_path = resolve_path(&contents[15..contents.len() - 1])?;
+        let sessions_path = &contents[15..contents.len() - 1];
+        if sessions_path.is_empty() {
+            return Err("wrong config, sessions_path is empty")?;
+        }
+        let sessions_path = resolve_path(&sessions_path)?;
         let config = Config {
             action: Action::Start,
             sessions_path,
@@ -540,6 +544,13 @@ mod tests {
             sessions_path: PathBuf::from(&path),
         };
         assert_eq!(Config::from_file(&contents).unwrap(), config);
+    }
+
+    #[test]
+    fn config_from_file_fails_when_wrong_format() {
+        assert!(Config::from_file("sessions_path=''")
+            .unwrap_err()
+            .contains("sessions_path is empty"));
     }
 
     #[test]
