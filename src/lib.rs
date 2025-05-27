@@ -182,6 +182,7 @@ impl Session {
             .date
     }
 
+    #[allow(dead_code)]
     fn end(&self) -> chrono::DateTime<chrono::Local> {
         self.marks
             .last()
@@ -228,7 +229,22 @@ impl Session {
     }
 
     fn view(&self) -> String {
-        let time = DateTime::get_time_hr(&self.start(), &self.end());
+        assert!(self.marks.len() > 0);
+        assert!(!(self.marks.len() == 1 && self.marks.last().unwrap().has_label(&Label::End)));
+        let time: String = {
+            let mut acc = 0;
+            let mut mark_preceding = &self.marks[0];
+            for mark in self.marks.iter().skip(1) {
+                if !mark_preceding.has_label(&Label::Skip) {
+                    acc += DateTime::get_time(&mark_preceding.date, &mark.date);
+                }
+                mark_preceding = &mark;
+            }
+            if self.is_active && !mark_preceding.has_label(&Label::Skip) {
+                acc += DateTime::get_time(&mark_preceding.date, &DateTime::now().date);
+            }
+            DateTime::get_time_hr_from_milli(acc)
+        };
         let mut str = String::new();
         if !self.is_active {
             str += "No active session, last session:\n";
@@ -479,13 +495,19 @@ impl DateTime {
         date.format("%FT%T%:z").to_string()
     }
 
-    fn get_time_hr(
+    // TODO: move to it's own struct or combine with std::time::Duration?
+    fn get_time(
         start: &chrono::DateTime<chrono::Local>,
         end: &chrono::DateTime<chrono::Local>,
-    ) -> String {
-        let mut timestamp = (end.timestamp_millis() - start.timestamp_millis()) / 1000;
-        assert!(timestamp >= 0);
-        const UNIT: i64 = 60;
+    ) -> u64 {
+        let time = end.timestamp_millis() - start.timestamp_millis();
+        time.try_into()
+            .expect("start date must always be smaller than end date")
+    }
+
+    fn get_time_hr_from_milli(milli: u64) -> String {
+        let mut timestamp = milli / 1000;
+        const UNIT: u64 = 60;
         let seconds = timestamp % UNIT;
         timestamp /= UNIT;
         let minutes = timestamp % UNIT;
@@ -526,6 +548,13 @@ mod tests {
             {MARK_HEADING_PREFIX}{date}\
             "
         )
+    }
+
+    fn now_plus_secs(secs: i64) -> chrono::DateTime<chrono::Local> {
+        let date = DateTime::now().date;
+        chrono::DateTime::from_timestamp_millis(date.timestamp_millis() + secs * 1000)
+            .unwrap()
+            .into()
     }
 
     #[test]
@@ -705,31 +734,15 @@ mod tests {
 
     #[test]
     fn session_view_works() {
-        let dt = DateTime::now();
-        let mark_start = Mark::new(
-            &dt.date
-                .with_hour(10)
-                .unwrap()
-                .with_minute(6)
-                .unwrap()
-                .with_second(24)
-                .unwrap(),
-        );
-        let mark_end = Mark::new(
-            &dt.date
-                .with_hour(12)
-                .unwrap()
-                .with_minute(15)
-                .unwrap()
-                .with_second(39)
-                .unwrap(),
-        );
+        let mark_start = Mark::new(&now_plus_secs(-2 * 60 * 60));
+        let mark_end = Mark::new(&now_plus_secs(-30 * 60));
         let mut session = Session {
             path: PathBuf::from("sessions"),
             is_active: true,
-            marks: vec![mark_start.clone(), mark_end.clone()],
+            marks: vec![mark_start, mark_end.clone()],
         };
-        assert_eq!(session.view(), "Time: 2h 9m 15s");
+        // Goes up to current time.
+        assert_eq!(session.view(), "Time: 2h 0m 0s");
 
         session.marks.pop();
         session.stop().unwrap();
@@ -737,8 +750,36 @@ mod tests {
         mark.date = mark_end.date;
         assert_eq!(
             session.view(),
-            "No active session, last session:\nTime: 2h 9m 15s"
+            "No active session, last session:\nTime: 1h 30m 0s"
         );
+    }
+
+    // It ignores `mark_first` and counts to current time, so `mark_second` is the final time.
+    #[test]
+    fn session_view_ignores_marks_if_they_have_label_skip() {
+        let mut mark_first = Mark::new(&now_plus_secs(-3 * 60 * 60));
+        mark_first.add_label(&Label::Skip);
+        let mark_second = Mark::new(&now_plus_secs(-54 * 60 - 10)); // 54m 10s
+        let mark_third = Mark::new(&now_plus_secs(-10 * 60));
+        let session = Session {
+            path: PathBuf::from("sessions"),
+            is_active: true,
+            marks: vec![mark_first, mark_second, mark_third],
+        };
+        assert_eq!(session.view(), "Time: 0h 54m 10s");
+    }
+
+    #[test]
+    fn session_view_ignores_current_time_if_last_mark_has_label_skip() {
+        let mark_first = Mark::new(&now_plus_secs(-3 * 60 * 60));
+        let mut mark_second = Mark::new(&now_plus_secs(-1 * 60 * 60 - 33 * 60 - 20)); // 1h 33m 20s
+        mark_second.add_label(&Label::Skip);
+        let session = Session {
+            path: PathBuf::from("sessions"),
+            is_active: true,
+            marks: vec![mark_first, mark_second],
+        };
+        assert_eq!(session.view(), "Time: 1h 26m 40s");
     }
 
     #[test]
@@ -1008,7 +1049,15 @@ mod tests {
     }
 
     #[test]
-    fn date_time_get_time_hr_works() {
+    fn date_time_get_time_works() {
+        let start = DateTime::now().date.with_minute(2).unwrap();
+        let end = start.with_minute(5).unwrap();
+        let time = DateTime::get_time(&start, &end);
+        assert_eq!(time, 180_000);
+    }
+
+    #[test]
+    fn date_time_get_time_hr_from_milli_works() {
         let start = DateTime::now()
             .date
             .with_year(2000)
@@ -1043,6 +1092,7 @@ mod tests {
             .with_second(2)
             .unwrap();
         let text = "9554h 2m 2s";
-        assert_eq!(DateTime::get_time_hr(&start, &end), text);
+        let time = DateTime::get_time(&start, &end);
+        assert_eq!(DateTime::get_time_hr_from_milli(time), text);
     }
 }
