@@ -183,10 +183,11 @@ impl Session {
     }
 
     fn get_last(config: &Config) -> Result<Option<Session>, Box<dyn Error>> {
-        let dir = fs::read_dir(&config.sessions_path)
+        let mut dir = fs::read_dir(&config.sessions_path)
             .map_err(|_err| "session directory doesn't exist")?
             .map(|res| res.map(|v| v.path()))
             .collect::<Result<Vec<_>, io::Error>>()?;
+        dir.sort();
         if dir.len() == 0 {
             return Ok(None);
         }
