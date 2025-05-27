@@ -12,6 +12,7 @@ const CONFIG_PATH: &str = "~/.timetracker.toml";
 const CONFIG_SESSIONS_PATH: &str = "sessions_path";
 
 const SESSION_HEADING_PREFIX: &str = "# ";
+const SESSION_TITLE: &str = "Session";
 const MARKS_HEADING: &str = "## Marks";
 const MARK_HEADING_PREFIX: &str = "### ";
 const LABEL_PREFIX: &str = "- ";
@@ -159,7 +160,6 @@ impl SessionFile {
 struct Session {
     path: PathBuf,
     is_active: bool,
-    start: chrono::DateTime<chrono::Local>,
     marks: Vec<Mark>,
 }
 
@@ -170,9 +170,15 @@ impl Session {
         Session {
             path: Path::join(&config.sessions_path, format!("{}.md", dt.formatted)),
             is_active: true,
-            start: dt.date,
             marks: vec![mark],
         }
+    }
+
+    fn start(&self) -> chrono::DateTime<chrono::Local> {
+        self.marks
+            .first()
+            .expect("session must have at least one mark")
+            .date
     }
 
     fn end(&self) -> chrono::DateTime<chrono::Local> {
@@ -221,7 +227,7 @@ impl Session {
     }
 
     fn view(&self) -> String {
-        let time = DateTime::get_time_hr(&self.start, &self.end());
+        let time = DateTime::get_time_hr(&self.start(), &self.end());
         let mut str = String::new();
         if !self.is_active {
             str += "No active session, last session:\n";
@@ -237,13 +243,6 @@ impl Session {
     }
 
     fn from_file(file: &SessionFile) -> Result<Session, Box<dyn Error>> {
-        let start: chrono::DateTime<chrono::Local> = file
-            .contents
-            .lines()
-            .next()
-            .map(|val| chrono::DateTime::from_str(&val[SESSION_HEADING_PREFIX.len()..val.len()]))
-            .ok_or("couldn't extract date from heading")??;
-
         let mut marks: Vec<Mark> = Vec::new();
         let marks_contents = SessionFile::get_heading_with_contents(MARKS_HEADING, &file.contents);
         for line in marks_contents.lines() {
@@ -264,16 +263,14 @@ impl Session {
         Ok(Session {
             path: file.path.clone(),
             is_active,
-            start,
             marks,
         })
     }
 
     fn to_file(&self, config: &Config) -> Result<SessionFile, &'static str> {
-        let date = DateTime::format(&self.start);
         let mut contents = format!(
             "\
-            {SESSION_HEADING_PREFIX}{date}\n\
+            {SESSION_HEADING_PREFIX}{SESSION_TITLE}\n\
             \n\
             {MARKS_HEADING}\n\
             \n\
@@ -284,6 +281,7 @@ impl Session {
             contents += "\n\n";
         }
 
+        let date = DateTime::format(&self.start());
         let file_name = format!("{}.md", date);
         let path = config.sessions_path.join(&file_name);
 
@@ -414,7 +412,7 @@ fn start(config: &Config) -> Result<(), Box<dyn Error>> {
         return Err("this session file is already created")?;
     };
     fs::write(&path, &contents).map_err(|_| "session directory doesn't exist")?;
-    println!("Started: {}", DateTime::format(&session.start));
+    println!("Started: {}", DateTime::format(&session.start()));
     Ok(())
 }
 
@@ -610,7 +608,6 @@ mod tests {
         let session = Session {
             path: config.sessions_path.join(format!("{}.md", dt.formatted)),
             is_active: true,
-            start: dt.date,
             marks: vec![mark],
         };
         assert_eq!(Session::new(&config), session);
@@ -664,7 +661,6 @@ mod tests {
         let mut session = Session {
             path: PathBuf::new(),
             is_active: true,
-            start: dt.date,
             marks: vec![],
         };
         let mark = Mark::new(&dt.date);
@@ -681,7 +677,6 @@ mod tests {
         let mut session = Session {
             path: PathBuf::from(format!("./sessions/{}.md", dt.formatted)),
             is_active: true,
-            start: dt.date,
             marks: vec![mark_first, mark_second],
         };
         let mut clone = session.clone();
@@ -728,7 +723,6 @@ mod tests {
         let mut session = Session {
             path: PathBuf::from("sessions"),
             is_active: true,
-            start: mark_start.date,
             marks: vec![mark_start.clone(), mark_end.clone()],
         };
         assert_eq!(session.view(), "Time: 2h 9m 15s");
@@ -745,7 +739,7 @@ mod tests {
 
     #[test]
     fn session_from_file_works() {
-        let DateTime { date, formatted } = DateTime::now();
+        let DateTime { date, .. } = DateTime::now();
         let mark_first_dt = DateTime {
             date: date.with_hour(5).unwrap(),
             formatted: DateTime::format(&date.with_hour(5).unwrap()),
@@ -754,7 +748,7 @@ mod tests {
 
         let contents = format!(
             "\
-                {SESSION_HEADING_PREFIX}{formatted}\n\
+                {SESSION_HEADING_PREFIX}{SESSION_TITLE}\n\
                 \n\
                 {MARKS_HEADING}\n\
                 \n\
@@ -766,7 +760,6 @@ mod tests {
         let session = Session {
             path: file.path.clone(),
             is_active: true,
-            start: date,
             marks: vec![mark_first],
         };
 
@@ -775,14 +768,14 @@ mod tests {
 
     #[test]
     fn session_from_file_reads_active_state_of_session() {
-        let DateTime { date, formatted } = DateTime::now();
+        let DateTime { date, .. } = DateTime::now();
         let mark_first_dt = DateTime {
             date: date.with_hour(5).unwrap(),
             formatted: DateTime::format(&date.with_hour(5).unwrap()),
         };
         let contents = format!(
             "\
-                {SESSION_HEADING_PREFIX}{formatted}\n\
+                {SESSION_HEADING_PREFIX}{SESSION_TITLE}\n\
                 \n\
                 {MARKS_HEADING}\n\
                 \n\
@@ -801,7 +794,6 @@ mod tests {
         let session = Session {
             path: file.path.clone(),
             is_active: false,
-            start: date,
             marks: vec![mark_first],
         };
 
@@ -813,10 +805,9 @@ mod tests {
 
     #[test]
     fn session_from_file_fails_when_there_is_no_mark() {
-        let DateTime { formatted, .. } = DateTime::now();
         let contents = format!(
             "\
-                {SESSION_HEADING_PREFIX}{formatted}\n\
+                {SESSION_HEADING_PREFIX}{SESSION_TITLE}\n\
                 \n\
                 {MARKS_HEADING}\n\
                 ",
@@ -847,16 +838,17 @@ mod tests {
             sessions_path: PathBuf::from("sessions"),
         };
         let session = Session {
-            path: config.sessions_path.join(format!("{}.md", dt.formatted)),
+            path: config
+                .sessions_path
+                .join(format!("{}.md", mark_first_dt.formatted)),
             is_active: true,
-            start: dt.date,
             marks: vec![mark_first, mark_second],
         };
         let file = SessionFile::build(
             &session.path,
             &format!(
                 "\
-                    {SESSION_HEADING_PREFIX}{}\n\
+                    {SESSION_HEADING_PREFIX}{SESSION_TITLE}\n\
                     \n\
                     {MARKS_HEADING}\n\
                     \n\
@@ -867,7 +859,7 @@ mod tests {
                     I am the second mark!\n\
                     Hi!\n\
                     ",
-                dt.formatted, mark_first_dt.formatted, mark_second_dt.formatted
+                mark_first_dt.formatted, mark_second_dt.formatted
             ),
         )?;
 
@@ -893,9 +885,10 @@ mod tests {
             sessions_path: PathBuf::from("sessions"),
         };
         let session = Session {
-            path: config.sessions_path.join(&format!("{}.md", dt.formatted)),
+            path: config
+                .sessions_path
+                .join(&format!("{}.md", DateTime::format(&mark_first.date))),
             is_active: true,
-            start: dt.date,
             marks: vec![mark_first, mark_second],
         };
         let file = session.to_file(&config).unwrap();
