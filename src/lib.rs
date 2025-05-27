@@ -17,6 +17,7 @@ const MARKS_HEADING: &str = "## Marks";
 const MARK_HEADING_PREFIX: &str = "### ";
 const LABEL_PREFIX: &str = "- ";
 const LABEL_END: &str = "- end";
+const LABEL_SKIP: &str = "- skip";
 
 #[derive(PartialEq, Debug)]
 pub struct Config {
@@ -371,11 +372,13 @@ impl Mark {
 #[derive(PartialEq, Debug, Clone)]
 enum Label {
     End,
+    Skip,
 }
 impl Label {
     fn from_string(text: &str) -> Result<Label, String> {
         match text.trim() {
             LABEL_END => Ok(Label::End),
+            LABEL_SKIP => Ok(Label::Skip),
             _ => Err(format!("couldn't parse label from stirng '{}'", text)),
         }
     }
@@ -383,6 +386,7 @@ impl Label {
     fn to_string(&self) -> &str {
         match self {
             Label::End => LABEL_END,
+            Label::Skip => LABEL_SKIP,
         }
     }
 }
@@ -969,12 +973,14 @@ mod tests {
     #[test]
     fn label_from_string_works() {
         assert_eq!(Label::from_string(LABEL_END).unwrap(), Label::End);
+        assert_eq!(Label::from_string(LABEL_SKIP).unwrap(), Label::Skip);
         assert!(Label::from_string("some string").is_err())
     }
 
     #[test]
     fn label_to_string_works() {
         assert_eq!(Label::End.to_string(), LABEL_END);
+        assert_eq!(Label::Skip.to_string(), LABEL_SKIP);
     }
 
     #[test]
