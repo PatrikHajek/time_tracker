@@ -160,7 +160,6 @@ impl SessionFile {
 #[derive(PartialEq, Debug, Clone)]
 struct Session {
     path: PathBuf,
-    is_active: bool,
     marks: Vec<Mark>,
 }
 
@@ -170,7 +169,6 @@ impl Session {
         let mark = Mark::new(&dt.date);
         Session {
             path: Path::join(&config.sessions_path, format!("{}.md", dt.formatted)),
-            is_active: true,
             marks: vec![mark],
         }
     }
@@ -190,6 +188,14 @@ impl Session {
             .date
     }
 
+    fn is_active(&self) -> bool {
+        !self
+            .marks
+            .last()
+            .expect("must always have at least one mark")
+            .has_label(&Label::End)
+    }
+
     fn get_last(config: &Config) -> Result<Option<Session>, Box<dyn Error>> {
         let mut dir = fs::read_dir(&config.sessions_path)
             .map_err(|_err| "session directory doesn't exist")?
@@ -207,19 +213,18 @@ impl Session {
     }
 
     fn stop(&mut self) -> Result<(), &'static str> {
-        if !self.is_active {
+        if !self.is_active() {
             return Err("session already ended");
         }
         let dt = DateTime::now();
         let mut mark = Mark::new(&dt.date);
         mark.add_label(&Label::End);
         self.marks.push(mark);
-        self.is_active = false;
         Ok(())
     }
 
     fn mark(&mut self) -> Result<(), &'static str> {
-        if !self.is_active {
+        if !self.is_active() {
             return Err("can't mark, session has already ended");
         }
         let dt = DateTime::now();
@@ -240,13 +245,13 @@ impl Session {
                 }
                 mark_preceding = &mark;
             }
-            if self.is_active && !mark_preceding.has_label(&Label::Skip) {
+            if self.is_active() && !mark_preceding.has_label(&Label::Skip) {
                 acc += DateTime::get_time(&mark_preceding.date, &DateTime::now().date);
             }
             DateTime::get_time_hr_from_milli(acc)
         };
         let mut str = String::new();
-        if !self.is_active {
+        if !self.is_active() {
             str += "No active session, last session:\n";
         }
         str += &format!("Time: {time}");
@@ -272,14 +277,9 @@ impl Session {
         if marks.is_empty() {
             return Err("there must be at least one mark for a session to be valid")?;
         }
-        let is_active = match marks.last() {
-            Some(v) => !v.has_label(&Label::End),
-            None => true,
-        };
 
         Ok(Session {
             path: file.path.clone(),
-            is_active,
             marks,
         })
     }
@@ -421,7 +421,7 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
 
 fn start(config: &Config) -> Result<(), Box<dyn Error>> {
     if let Some(session) = Session::get_last(&config)? {
-        if session.is_active {
+        if session.is_active() {
             return Err("another session is already active")?;
         }
     }
@@ -640,7 +640,6 @@ mod tests {
         let mark = Mark::new(&dt.date);
         let session = Session {
             path: config.sessions_path.join(format!("{}.md", dt.formatted)),
-            is_active: true,
             marks: vec![mark],
         };
         assert_eq!(Session::new(&config), session);
@@ -669,6 +668,20 @@ mod tests {
     }
 
     #[test]
+    fn session_is_active_works() {
+        let config = Config {
+            action: Action::Start,
+            sessions_path: PathBuf::from("sessions"),
+        };
+        let mut session = Session::new(&config);
+        assert!(session.is_active());
+        assert!(!session.marks.last().unwrap().has_label(&Label::End));
+        session.stop().unwrap();
+        assert!(!session.is_active());
+        assert!(session.marks.last().unwrap().has_label(&Label::End));
+    }
+
+    #[test]
     fn session_stop_works() {
         let config = Config {
             action: Action::Stop,
@@ -681,7 +694,6 @@ mod tests {
         let mut mark = Mark::new(&dt.date);
         mark.add_label(&Label::End);
         clone.marks.push(mark);
-        clone.is_active = false;
         assert_eq!(session, clone);
     }
 
@@ -701,15 +713,15 @@ mod tests {
     #[test]
     fn session_mark_works() {
         let dt = DateTime::now();
-        let mut session = Session {
-            path: PathBuf::new(),
-            is_active: true,
-            marks: vec![],
+        let config = Config {
+            action: Action::Start,
+            sessions_path: PathBuf::from("sessions"),
         };
+        let mut session = Session::new(&config);
         let mark = Mark::new(&dt.date);
         session.mark().unwrap();
-        assert_eq!(session.marks.len(), 1);
-        assert_eq!(session.marks[0], mark);
+        assert_eq!(session.marks.len(), 2);
+        assert_eq!(session.marks[1], mark);
     }
 
     #[test]
@@ -719,7 +731,6 @@ mod tests {
         let mark_second = Mark::new(&mark_first.date.with_minute(47).unwrap());
         let mut session = Session {
             path: PathBuf::from(format!("./sessions/{}.md", dt.formatted)),
-            is_active: true,
             marks: vec![mark_first, mark_second],
         };
         let mut clone = session.clone();
@@ -748,7 +759,6 @@ mod tests {
         let mark_end = Mark::new(&now_plus_secs(-30 * 60));
         let mut session = Session {
             path: PathBuf::from("sessions"),
-            is_active: true,
             marks: vec![mark_start, mark_end.clone()],
         };
         // Goes up to current time.
@@ -773,7 +783,6 @@ mod tests {
         let mark_third = Mark::new(&now_plus_secs(-10 * 60));
         let session = Session {
             path: PathBuf::from("sessions"),
-            is_active: true,
             marks: vec![mark_first, mark_second, mark_third],
         };
         assert_eq!(session.view(), "Time: 0h 54m 10s");
@@ -786,7 +795,6 @@ mod tests {
         mark_second.add_label(&Label::Skip);
         let session = Session {
             path: PathBuf::from("sessions"),
-            is_active: true,
             marks: vec![mark_first, mark_second],
         };
         assert_eq!(session.view(), "Time: 1h 26m 40s");
@@ -800,6 +808,12 @@ mod tests {
             formatted: DateTime::format(&date.with_hour(5).unwrap()),
         };
         let mark_first = Mark::new(&mark_first_dt.date);
+        let mark_second_dt = DateTime {
+            date: mark_first.date.with_minute(23).unwrap(),
+            formatted: DateTime::format(&mark_first.date.with_minute(23).unwrap()),
+        };
+        let mut mark_second = Mark::new(&mark_second_dt.date);
+        mark_second.add_label(&Label::End);
 
         let contents = format!(
             "\
@@ -808,55 +822,21 @@ mod tests {
                 {MARKS_HEADING}\n\
                 \n\
                 {MARK_HEADING_PREFIX}{}\n\
-                ",
-            mark_first_dt.formatted
-        );
-        let file = SessionFile::build(&PathBuf::new(), &contents).unwrap();
-        let session = Session {
-            path: file.path.clone(),
-            is_active: true,
-            marks: vec![mark_first],
-        };
-
-        assert_eq!(Session::from_file(&file).unwrap(), session);
-    }
-
-    #[test]
-    fn session_from_file_reads_active_state_of_session() {
-        let DateTime { date, .. } = DateTime::now();
-        let mark_first_dt = DateTime {
-            date: date.with_hour(5).unwrap(),
-            formatted: DateTime::format(&date.with_hour(5).unwrap()),
-        };
-        let contents = format!(
-            "\
-                {SESSION_HEADING_PREFIX}{SESSION_TITLE}\n\
-                \n\
-                {MARKS_HEADING}\n\
                 \n\
                 {MARK_HEADING_PREFIX}{}\n\
                 \n\
                 {LABEL_END}\n\
                 ",
-            mark_first_dt.formatted
+            mark_first_dt.formatted, mark_second_dt.formatted,
         );
         let file = SessionFile::build(&PathBuf::new(), &contents).unwrap();
-        let mark_first = Mark {
-            date: mark_first_dt.date,
-            labels: vec![Label::End],
-            contents: String::new(),
-        };
         let session = Session {
             path: file.path.clone(),
-            is_active: false,
-            marks: vec![mark_first],
+            marks: vec![mark_first, mark_second],
         };
 
         assert_eq!(Session::from_file(&file).unwrap(), session);
     }
-
-    #[test]
-    fn session_from_file_reads_active_state_of_session_only_when_the_mark_is_last() {}
 
     #[test]
     fn session_from_file_fails_when_there_is_no_mark() {
@@ -896,7 +876,6 @@ mod tests {
             path: config
                 .sessions_path
                 .join(format!("{}.md", mark_first_dt.formatted)),
-            is_active: true,
             marks: vec![mark_first, mark_second],
         };
         let file = SessionFile::build(
@@ -943,7 +922,6 @@ mod tests {
             path: config
                 .sessions_path
                 .join(&format!("{}.md", DateTime::format(&mark_first.date))),
-            is_active: true,
             marks: vec![mark_first, mark_second],
         };
         let file = session.to_file(&config).unwrap();
