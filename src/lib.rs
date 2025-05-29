@@ -647,6 +647,16 @@ mod tests {
     }
 
     #[test]
+    fn session_start_works() {
+        let config = Config {
+            action: Action::Start,
+            sessions_path: PathBuf::from("sessions"),
+        };
+        let session = Session::new(&config);
+        assert_eq!(session.start(), session.marks.first().unwrap().date);
+    }
+
+    #[test]
     fn session_end_works() {
         let config = Config {
             action: Action::Start,
