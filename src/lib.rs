@@ -396,7 +396,7 @@ impl Label {
         match text.trim() {
             LABEL_END => Ok(Label::End),
             LABEL_SKIP => Ok(Label::Skip),
-            _ => Err(format!("couldn't parse label from stirng '{}'", text)),
+            _ => Err(format!("couldn't parse label from string '{}'", text)),
         }
     }
 
