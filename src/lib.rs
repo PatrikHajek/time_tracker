@@ -21,8 +21,8 @@ const LABEL_SKIP: &str = "- skip";
 
 #[derive(PartialEq, Debug)]
 pub struct Config {
-    pub action: Action,
-    pub sessions_path: PathBuf,
+    action: Action,
+    sessions_path: PathBuf,
 }
 
 impl Config {
@@ -50,7 +50,7 @@ impl Config {
         Ok(config)
     }
 
-    pub fn from_args(args: &[String]) -> Result<Config, String> {
+    fn from_args(args: &[String]) -> Result<Config, String> {
         if args.len() < 2 {
             return Err("not enough arguments")?;
         }
@@ -84,7 +84,7 @@ impl Config {
 }
 
 #[derive(PartialEq, Debug)]
-pub enum Action {
+enum Action {
     Start,
     Stop,
     Mark,
