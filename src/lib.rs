@@ -591,6 +591,7 @@ mod tests {
         assert_eq!(Action::build("stop")?, Action::Stop);
         assert_eq!(Action::build("mark")?, Action::Mark);
         assert_eq!(Action::build("path")?, Action::Path);
+        assert_eq!(Action::build("view")?, Action::View);
 
         assert!(Action::build("some string").is_err());
 
