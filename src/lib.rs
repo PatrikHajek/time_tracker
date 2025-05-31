@@ -98,13 +98,37 @@ enum Action {
 
 impl Action {
     fn build(name: &str, args: &[String]) -> Result<Action, String> {
-        // TODO: validate args
         let out = match name {
-            "start" => Action::Start,
-            "stop" => Action::Stop,
-            "mark" => Action::Mark,
-            "path" => Action::Path,
-            "view" => Action::View,
+            "start" => {
+                if args.len() != 0 {
+                    return Err("too many arguments")?;
+                }
+                Action::Start
+            }
+            "stop" => {
+                if args.len() != 0 {
+                    return Err("too many arguments")?;
+                }
+                Action::Stop
+            }
+            "mark" => {
+                if args.len() != 0 {
+                    return Err("too many arguments")?;
+                }
+                Action::Mark
+            }
+            "path" => {
+                if args.len() != 0 {
+                    return Err("too many arguments")?;
+                }
+                Action::Path
+            }
+            "view" => {
+                if args.len() != 0 {
+                    return Err("too many arguments")?;
+                }
+                Action::View
+            }
             "label" | "unlabel" => {
                 if args.len() == 0 {
                     return Err("no label specified")?;
@@ -651,10 +675,19 @@ mod tests {
     #[test]
     fn action_build_works() -> Result<(), Box<dyn Error>> {
         assert_eq!(Action::build("start", &[])?, Action::Start);
+        assert!(Action::build("start", &[String::from("hello")]).is_err());
+
         assert_eq!(Action::build("stop", &[])?, Action::Stop);
+        assert!(Action::build("stop", &[String::from("hello")]).is_err());
+
         assert_eq!(Action::build("mark", &[])?, Action::Mark);
+        assert!(Action::build("mark", &[String::from("hello")]).is_err());
+
         assert_eq!(Action::build("path", &[])?, Action::Path);
+        assert!(Action::build("path", &[String::from("hello")]).is_err());
+
         assert_eq!(Action::build("view", &[])?, Action::View);
+        assert!(Action::build("view", &[String::from("hello")]).is_err());
 
         assert!(Action::build("label", &[]).is_err());
         assert!(Action::build("label", &[String::from("hello")]).is_err());
@@ -672,7 +705,7 @@ mod tests {
             Action::Unlabel { label: Label::Skip }
         );
 
-        assert!(Action::build("some string", &[]).is_err());
+        assert!(Action::build("hello", &[]).is_err());
 
         Ok(())
     }
