@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     env,
     error::Error,
     fs, io,
@@ -310,7 +311,7 @@ impl Session {
 #[derive(PartialEq, Debug, Clone)]
 struct Mark {
     date: chrono::DateTime<chrono::Local>,
-    labels: Vec<Label>,
+    labels: HashSet<Label>,
     contents: String,
 }
 
@@ -318,13 +319,13 @@ impl Mark {
     fn new(date: &chrono::DateTime<chrono::Local>) -> Mark {
         Mark {
             date: date.clone(),
-            labels: vec![],
+            labels: HashSet::new(),
             contents: String::new(),
         }
     }
 
     fn add_label(&mut self, label: &Label) {
-        self.labels.push(label.clone());
+        self.labels.insert(label.clone());
     }
 
     fn has_label(&self, label: &Label) -> bool {
@@ -344,13 +345,13 @@ impl Mark {
             .fold(String::new(), |acc, val| acc + "\n" + val)
             .trim()
             .to_owned();
-        let mut labels: Vec<Label> = vec![];
+        let mut labels: HashSet<Label> = HashSet::new();
         if contents_without_heading.starts_with(LABEL_PREFIX) {
             for line in contents_without_heading.lines() {
                 if !line.starts_with(LABEL_PREFIX) {
                     break;
                 }
-                labels.push(Label::from_string(&line)?);
+                labels.insert(Label::from_string(&line)?);
             }
             contents_without_heading = contents_without_heading
                 .lines()
@@ -385,7 +386,7 @@ impl Mark {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone)]
 enum Label {
     End,
     Skip,
@@ -866,7 +867,7 @@ mod tests {
         };
         let mark_second = Mark {
             date: mark_second_dt.date,
-            labels: vec![],
+            labels: HashSet::new(),
             contents: String::from("I am the second mark!\nHi!\n"),
         };
         let config = Config {
@@ -907,12 +908,12 @@ mod tests {
         let dt = DateTime::now();
         let mark_first = Mark {
             date: dt.date.with_hour(5).unwrap().with_minute(54).unwrap(),
-            labels: vec![],
+            labels: HashSet::new(),
             contents: String::from("feat/some-branch\n\nDid a few things"),
         };
         let mark_second = Mark {
             date: dt.date.with_hour(6).unwrap().with_minute(13).unwrap(),
-            labels: vec![],
+            labels: HashSet::new(),
             contents: String::from("feat/new-feature"),
         };
         let config = Config {
@@ -943,7 +944,7 @@ mod tests {
         mark.add_label(&Label::End);
         let expected = Mark {
             date: dt.date,
-            labels: vec![Label::End],
+            labels: HashSet::from_iter([Label::End]),
             contents: String::new(),
         };
         assert_eq!(mark, expected);
@@ -972,7 +973,7 @@ mod tests {
         );
         let mark = Mark {
             date: dt.date,
-            labels: vec![Label::End],
+            labels: HashSet::from_iter([Label::End]),
             contents: String::from("This is some content."),
         };
         assert_eq!(Mark::from_string(&contents).unwrap(), mark);
@@ -983,7 +984,7 @@ mod tests {
         let dt = DateTime::now();
         let mark = Mark {
             date: dt.date,
-            labels: vec![Label::End],
+            labels: HashSet::from_iter([Label::End]),
             contents: String::from("This is a content of a mark.\nHow are you?\n"),
         };
         let output = format!(
