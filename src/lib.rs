@@ -321,8 +321,8 @@ impl Session {
             .remove_label(&label);
     }
 
-    fn save(&self, config: &Config) -> Result<(), Box<dyn Error>> {
-        let file = self.to_file(&config)?;
+    fn save(&self) -> Result<(), Box<dyn Error>> {
+        let file = self.to_file()?;
         fs::write(&file.path, &file.contents).map_err(|e| format!("coudln't save session: {e}"))?;
         Ok(())
     }
@@ -347,7 +347,7 @@ impl Session {
         })
     }
 
-    fn to_file(&self, config: &Config) -> Result<SessionFile, &'static str> {
+    fn to_file(&self) -> Result<SessionFile, &'static str> {
         let mut contents = format!(
             "\
             {SESSION_HEADING_PREFIX}{SESSION_TITLE}\n\
@@ -361,11 +361,7 @@ impl Session {
             contents += "\n\n";
         }
 
-        let date = DateTime::format(&self.start());
-        let file_name = format!("{}.md", date);
-        let path = config.sessions_path.join(&file_name);
-
-        let file = SessionFile::build(&path, &contents)?;
+        let file = SessionFile::build(&self.path, &contents)?;
         Ok(file)
     }
 }
@@ -496,7 +492,7 @@ fn start(config: &Config) -> Result<(), Box<dyn Error>> {
     }
 
     let session = Session::new(&config);
-    let SessionFile { path, contents } = session.to_file(&config)?;
+    let SessionFile { path, contents } = session.to_file()?;
     if fs::exists(&path)? {
         return Err("this session file is already created")?;
     };
@@ -510,7 +506,7 @@ fn stop(config: &Config) -> Result<(), Box<dyn Error>> {
         return Err("no active session found")?;
     };
     session.stop()?;
-    session.save(&config)?;
+    session.save()?;
     let mark = session.marks.last().expect("Last mark was just added");
     println!("Stopped: {}", DateTime::format(&mark.date));
     Ok(())
@@ -521,7 +517,7 @@ fn mark(config: &Config) -> Result<(), Box<dyn Error>> {
         return Err("no active session found")?;
     };
     session.mark()?;
-    session.save(&config)?;
+    session.save()?;
     let mark = session.marks.last().expect("Last mark was just added");
     println!("Marked: {}", DateTime::format(&mark.date));
     Ok(())
@@ -548,7 +544,7 @@ fn label(config: &Config) -> Result<(), Box<dyn Error>> {
         return Err("no active session found")?;
     };
     session.label(&config);
-    session.save(&config)?;
+    session.save()?;
     Ok(())
 }
 
@@ -557,7 +553,7 @@ fn unlabel(config: &Config) -> Result<(), Box<dyn Error>> {
         return Err("no active session found")?;
     };
     session.unlabel(&config);
-    session.save(&config)?;
+    session.save()?;
     Ok(())
 }
 
@@ -1042,7 +1038,7 @@ mod tests {
             ),
         )?;
 
-        assert_eq!(session.to_file(&config)?, file);
+        assert_eq!(session.to_file()?, file);
         Ok(())
     }
 
@@ -1069,7 +1065,7 @@ mod tests {
                 .join(&format!("{}.md", DateTime::format(&mark_first.date))),
             marks: vec![mark_first, mark_second],
         };
-        let file = session.to_file(&config).unwrap();
+        let file = session.to_file().unwrap();
         assert_eq!(Session::from_file(&file).unwrap(), session);
     }
 
