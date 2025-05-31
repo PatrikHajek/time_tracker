@@ -56,7 +56,7 @@ impl Config {
             return Err("not enough arguments")?;
         }
 
-        let action = Action::build(&args[1])?;
+        let action = Action::build(&args[1], &args[2..])?;
         let config = Config {
             action,
             sessions_path: PathBuf::from(""),
@@ -91,17 +91,33 @@ enum Action {
     Mark,
     Path,
     View,
+    Label { label: Label },
+    Unlabel { label: Label },
     // Set,
 }
 
 impl Action {
-    fn build(name: &str) -> Result<Action, String> {
+    fn build(name: &str, args: &[String]) -> Result<Action, String> {
+        // TODO: validate args
         let out = match name {
             "start" => Action::Start,
             "stop" => Action::Stop,
             "mark" => Action::Mark,
             "path" => Action::Path,
             "view" => Action::View,
+            "label" | "unlabel" => {
+                if args.len() == 0 {
+                    return Err("no label specified")?;
+                } else if args.len() > 1 {
+                    return Err("too many arguments")?;
+                }
+                let label = Label::from_string(&format!("{LABEL_PREFIX}{}", &args[0]))?;
+                match name {
+                    "label" => Action::Label { label },
+                    "unlabel" => Action::Unlabel { label },
+                    x => panic!("unreachable Action::Label pattern {x}"),
+                }
+            }
             name => return Err(format!("unrecognized command `{name}`")),
         };
         Ok(out)
@@ -259,6 +275,28 @@ impl Session {
         str
     }
 
+    fn label(&mut self, config: &Config) {
+        let Action::Label { label } = &config.action else {
+            panic!("wrong action, expected Label");
+        };
+        self.marks
+            .iter_mut()
+            .last()
+            .expect("session must always have at least one mark")
+            .add_label(&label);
+    }
+
+    fn unlabel(&mut self, config: &Config) {
+        let Action::Unlabel { label } = &config.action else {
+            panic!("wrong action, expected Unlabel");
+        };
+        self.marks
+            .iter_mut()
+            .last()
+            .expect("session must always have at least one mark")
+            .remove_label(&label);
+    }
+
     fn save(&self, config: &Config) -> Result<(), Box<dyn Error>> {
         let file = self.to_file(&config)?;
         fs::write(&file.path, &file.contents).map_err(|e| format!("coudln't save session: {e}"))?;
@@ -326,6 +364,10 @@ impl Mark {
 
     fn add_label(&mut self, label: &Label) {
         self.labels.insert(label.clone());
+    }
+
+    fn remove_label(&mut self, label: &Label) {
+        self.labels.remove(&label);
     }
 
     fn has_label(&self, label: &Label) -> bool {
@@ -416,6 +458,8 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
         Action::Mark => mark(&config),
         Action::Path => path(&config),
         Action::View => view(&config),
+        Action::Label { .. } => label(&config),
+        Action::Unlabel { .. } => unlabel(&config),
     };
     Ok(result?)
 }
@@ -472,6 +516,24 @@ fn view(config: &Config) -> Result<(), Box<dyn Error>> {
         return Err("no active session found")?;
     };
     println!("{}", session.view());
+    Ok(())
+}
+
+fn label(config: &Config) -> Result<(), Box<dyn Error>> {
+    let Some(mut session) = Session::get_last(&config)? else {
+        return Err("no active session found")?;
+    };
+    session.label(&config);
+    session.save(&config)?;
+    Ok(())
+}
+
+fn unlabel(config: &Config) -> Result<(), Box<dyn Error>> {
+    let Some(mut session) = Session::get_last(&config)? else {
+        return Err("no active session found")?;
+    };
+    session.unlabel(&config);
+    session.save(&config)?;
     Ok(())
 }
 
@@ -588,13 +650,29 @@ mod tests {
 
     #[test]
     fn action_build_works() -> Result<(), Box<dyn Error>> {
-        assert_eq!(Action::build("start")?, Action::Start);
-        assert_eq!(Action::build("stop")?, Action::Stop);
-        assert_eq!(Action::build("mark")?, Action::Mark);
-        assert_eq!(Action::build("path")?, Action::Path);
-        assert_eq!(Action::build("view")?, Action::View);
+        assert_eq!(Action::build("start", &[])?, Action::Start);
+        assert_eq!(Action::build("stop", &[])?, Action::Stop);
+        assert_eq!(Action::build("mark", &[])?, Action::Mark);
+        assert_eq!(Action::build("path", &[])?, Action::Path);
+        assert_eq!(Action::build("view", &[])?, Action::View);
 
-        assert!(Action::build("some string").is_err());
+        assert!(Action::build("label", &[]).is_err());
+        assert!(Action::build("label", &[String::from("hello")]).is_err());
+        assert!(Action::build("label", &[String::from("skip"), String::from("hello")]).is_err());
+        assert_eq!(
+            Action::build("label", &[String::from("skip")])?,
+            Action::Label { label: Label::Skip }
+        );
+
+        assert!(Action::build("unlabel", &[]).is_err());
+        assert!(Action::build("unlabel", &[String::from("hello")]).is_err());
+        assert!(Action::build("unlabel", &[String::from("skip"), String::from("hello")]).is_err());
+        assert_eq!(
+            Action::build("unlabel", &[String::from("skip")])?,
+            Action::Unlabel { label: Label::Skip }
+        );
+
+        assert!(Action::build("some string", &[]).is_err());
 
         Ok(())
     }
@@ -803,6 +881,38 @@ mod tests {
     }
 
     #[test]
+    fn session_label_works() {
+        let config = Config {
+            action: Action::Label { label: Label::Skip },
+            sessions_path: PathBuf::from("sessions"),
+        };
+        let mut session = Session::new(&config);
+        let mut clone = session.clone();
+        session.label(&config);
+        clone
+            .marks
+            .iter_mut()
+            .last()
+            .unwrap()
+            .add_label(&Label::Skip);
+        assert_eq!(session, clone);
+    }
+
+    #[test]
+    fn session_unlabel_works() {
+        let mut config = Config {
+            action: Action::Label { label: Label::Skip },
+            sessions_path: PathBuf::from("sessions"),
+        };
+        let mut session = Session::new(&config);
+        let clone = session.clone();
+        session.label(&config);
+        config.action = Action::Unlabel { label: Label::Skip };
+        session.unlabel(&config);
+        assert_eq!(session, clone);
+    }
+
+    #[test]
     fn session_from_file_works() {
         let DateTime { date, .. } = DateTime::now();
         let mark_first_dt = DateTime {
@@ -948,6 +1058,28 @@ mod tests {
             contents: String::new(),
         };
         assert_eq!(mark, expected);
+    }
+
+    #[test]
+    fn mark_add_label_does_not_add_duplicate_label() {
+        let dt = DateTime::now();
+        let mut mark = Mark::new(&dt.date);
+        mark.add_label(&Label::Skip);
+        let clone = mark.clone();
+        mark.add_label(&Label::Skip);
+        assert_eq!(mark, clone);
+    }
+
+    #[test]
+    fn mark_remove_label_works() {
+        let dt = DateTime::now();
+        let mut mark = Mark::new(&dt.date);
+        let clone = mark.clone();
+        mark.add_label(&Label::Skip);
+        mark.remove_label(&Label::Skip);
+        assert_eq!(mark, clone);
+        mark.remove_label(&Label::Skip);
+        assert_eq!(mark, clone);
     }
 
     #[test]
