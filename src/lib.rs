@@ -299,10 +299,7 @@ impl Session {
         str
     }
 
-    fn label(&mut self, config: &Config) {
-        let Action::Label { label } = &config.action else {
-            panic!("wrong action, expected Label");
-        };
+    fn label(&mut self, label: &Label) {
         self.marks
             .iter_mut()
             .last()
@@ -310,10 +307,7 @@ impl Session {
             .add_label(&label);
     }
 
-    fn unlabel(&mut self, config: &Config) {
-        let Action::Unlabel { label } = &config.action else {
-            panic!("wrong action, expected Unlabel");
-        };
+    fn unlabel(&mut self, label: &Label) {
         self.marks
             .iter_mut()
             .last()
@@ -543,7 +537,10 @@ fn label(config: &Config) -> Result<(), Box<dyn Error>> {
     let Some(mut session) = Session::get_last(&config)? else {
         return Err("no active session found")?;
     };
-    session.label(&config);
+    let Action::Label { label } = &config.action else {
+        panic!("wrong action, expected Action::Label");
+    };
+    session.label(&label);
     session.save()?;
     Ok(())
 }
@@ -552,7 +549,10 @@ fn unlabel(config: &Config) -> Result<(), Box<dyn Error>> {
     let Some(mut session) = Session::get_last(&config)? else {
         return Err("no active session found")?;
     };
-    session.unlabel(&config);
+    let Action::Unlabel { label } = &config.action else {
+        panic!("wrong action, expected Action::Unlabel");
+    };
+    session.unlabel(&label);
     session.save()?;
     Ok(())
 }
@@ -917,7 +917,7 @@ mod tests {
         };
         let mut session = Session::new(&config);
         let mut clone = session.clone();
-        session.label(&config);
+        session.label(&Label::Skip);
         clone
             .marks
             .iter_mut()
@@ -929,15 +929,14 @@ mod tests {
 
     #[test]
     fn session_unlabel_works() {
-        let mut config = Config {
+        let config = Config {
             action: Action::Label { label: Label::Skip },
             sessions_path: PathBuf::from("sessions"),
         };
         let mut session = Session::new(&config);
         let clone = session.clone();
-        session.label(&config);
-        config.action = Action::Unlabel { label: Label::Skip };
-        session.unlabel(&config);
+        session.label(&Label::Skip);
+        session.unlabel(&Label::Skip);
         assert_eq!(session, clone);
     }
 
