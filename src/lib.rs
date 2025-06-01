@@ -135,6 +135,7 @@ impl Action {
                 } else if args.len() > 1 {
                     return Err("too many arguments")?;
                 }
+                // TODO: forbid adding Label::End?
                 let label = Label::from_string(&format!("{LABEL_PREFIX}{}", &args[0]))?;
                 match name {
                     "label" => Action::Label { label },
