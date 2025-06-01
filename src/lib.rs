@@ -542,6 +542,7 @@ fn label(config: &Config) -> Result<(), Box<dyn Error>> {
     };
     session.label(&label);
     session.save()?;
+    println!("Added label: {:?}", label);
     Ok(())
 }
 
@@ -554,6 +555,7 @@ fn unlabel(config: &Config) -> Result<(), Box<dyn Error>> {
     };
     session.unlabel(&label);
     session.save()?;
+    println!("Removed label: {:?}", label);
     Ok(())
 }
 
