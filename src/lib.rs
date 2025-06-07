@@ -1032,6 +1032,17 @@ mod tests {
     }
 
     #[test]
+    fn session_write_errors_when_there_is_content() {
+        let config = Config {
+            action: Action::Start,
+            sessions_path: PathBuf::from("sessions"),
+        };
+        let mut session = Session::new(&config);
+        session.write("Some content.").unwrap();
+        assert!(session.write("Some other content.").is_err());
+    }
+
+    #[test]
     fn session_from_file_works() {
         let DateTime { date, .. } = DateTime::now();
         let mark_first_dt = DateTime {
