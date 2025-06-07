@@ -599,7 +599,8 @@ fn write(config: &Config) -> Result<(), Box<dyn Error>> {
     let Action::Write { text } = &config.action else {
         panic!("wrong action, expected Action::Write");
     };
-    if session.write(&text).is_err() {
+    let has_failed = session.write(&text).is_err();
+    if has_failed {
         println!("Current mark already contains some text, do you want to overwrite it? (y/n)");
         let mut buf = String::new();
         io::stdin().read_line(&mut buf)?;
@@ -609,12 +610,12 @@ fn write(config: &Config) -> Result<(), Box<dyn Error>> {
                 .last_mut()
                 .expect("session must always have at least one mark")
                 .erase();
+            session.write(&text).expect("content is erased");
         } else {
             println!("Action cancelled");
             return Ok(());
         }
-    };
-    session.write(&text).expect("content is erased");
+    }
     session.save()?;
     println!("Text was successfully written to current mark");
     Ok(())
