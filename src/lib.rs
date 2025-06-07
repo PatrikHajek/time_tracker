@@ -93,6 +93,7 @@ enum Action {
     View,
     Label { label: Label },
     Unlabel { label: Label },
+    Write { text: String },
     // Set,
 }
 
@@ -141,6 +142,16 @@ impl Action {
                     "label" => Action::Label { label },
                     "unlabel" => Action::Unlabel { label },
                     x => panic!("unreachable Action::Label pattern {x}"),
+                }
+            }
+            "write" => {
+                if args.len() == 0 {
+                    return Err("no text specified")?;
+                } else if args.len() > 1 {
+                    return Err("too many arguments")?;
+                }
+                Action::Write {
+                    text: args[0].to_owned(),
                 }
             }
             name => return Err(format!("unrecognized command `{name}`")),
@@ -316,6 +327,20 @@ impl Session {
             .remove_label(&label);
     }
 
+    /// Returns error if the content of the current mark is not empty.
+    fn write(&mut self, text: &str) -> Result<(), ()> {
+        let mark = self
+            .marks
+            .iter_mut()
+            .last()
+            .expect("session must always have at least one mark");
+        if !mark.contents.is_empty() {
+            return Err(());
+        }
+        mark.write(&text);
+        Ok(())
+    }
+
     fn save(&self) -> Result<(), Box<dyn Error>> {
         let file = self.to_file()?;
         fs::write(&file.path, &file.contents).map_err(|e| format!("coudln't save session: {e}"))?;
@@ -387,6 +412,15 @@ impl Mark {
 
     fn has_label(&self, label: &Label) -> bool {
         self.labels.contains(&label)
+    }
+
+    /// Overwrites the content of this mark.
+    fn write(&mut self, text: &str) {
+        self.contents = text.to_owned();
+    }
+
+    fn erase(&mut self) {
+        self.contents = String::new();
     }
 
     fn from_string(contents: &str) -> Result<Mark, Box<dyn Error>> {
@@ -475,6 +509,7 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
         Action::View => view(&config),
         Action::Label { .. } => label(&config),
         Action::Unlabel { .. } => unlabel(&config),
+        Action::Write { .. } => write(&config),
     };
     Ok(result?)
 }
@@ -557,6 +592,35 @@ fn unlabel(config: &Config) -> Result<(), Box<dyn Error>> {
     session.unlabel(&label);
     session.save()?;
     println!("Removed label: {:?}", label);
+    Ok(())
+}
+
+fn write(config: &Config) -> Result<(), Box<dyn Error>> {
+    let Some(mut session) = Session::get_last(&config)? else {
+        return Err("no active session found")?;
+    };
+    let Action::Write { text } = &config.action else {
+        panic!("wrong action, expected Action::Write");
+    };
+    if session.write(&text).is_err() {
+        println!("Current mark already contains some text, do you want to overwrite it? (y/n)");
+        let mut buf = String::new();
+        io::stdin().read_line(&mut buf)?;
+        if buf == "\n" || buf == "y\n" {
+            session
+                .marks
+                .iter_mut()
+                .last()
+                .expect("session must always have at least one mark")
+                .erase();
+        } else {
+            println!("Action cancelled");
+            return Ok(());
+        }
+    };
+    session.write(&text).expect("content is erased");
+    session.save()?;
+    println!("Text was successfully written to current mark");
     Ok(())
 }
 
@@ -702,6 +766,15 @@ mod tests {
         assert_eq!(
             Action::build("unlabel", &[String::from("skip")])?,
             Action::Unlabel { label: Label::Skip }
+        );
+
+        assert!(Action::build("write", &[]).is_err());
+        assert!(Action::build("write", &[String::from("hello"), String::from("bye")]).is_err());
+        assert_eq!(
+            Action::build("write", &[String::from("this is content")]).unwrap(),
+            Action::Write {
+                text: String::from("this is content")
+            }
         );
 
         assert!(Action::build("hello", &[]).is_err());
@@ -944,6 +1017,23 @@ mod tests {
     }
 
     #[test]
+    fn session_write_works() {
+        let config = Config {
+            action: Action::Write {
+                text: String::new(),
+            },
+            sessions_path: PathBuf::from("sessions"),
+        };
+        let mut session = Session::new(&config);
+        // To have at least 2 marks.
+        session.mark().unwrap();
+        let mut clone = session.clone();
+        session.write("hello").unwrap();
+        clone.marks.iter_mut().last().unwrap().write("hello");
+        assert_eq!(session, clone);
+    }
+
+    #[test]
     fn session_from_file_works() {
         let DateTime { date, .. } = DateTime::now();
         let mark_first_dt = DateTime {
@@ -1119,6 +1209,39 @@ mod tests {
         let mut mark = Mark::new(&dt.date);
         mark.add_label(&Label::End);
         assert!(mark.has_label(&Label::End));
+    }
+
+    #[test]
+    fn mark_write_works() {
+        let dt = DateTime::now();
+        let mut mark = Mark::new(&dt.date);
+        let mut clone = mark.clone();
+        clone.contents = String::from("This is some content.");
+        mark.write("This is some content.");
+        assert_eq!(mark, clone);
+    }
+
+    #[test]
+    fn mark_write_overwrites_previous_content() {
+        let dt = DateTime::now();
+        let mut mark = Mark::new(&dt.date);
+        let mut clone = mark.clone();
+        clone.contents = String::from("This is some content");
+        mark.write("This is some content");
+        assert_eq!(mark, clone);
+        clone.contents = String::from("This is overwritten content");
+        mark.write("This is overwritten content");
+        assert_eq!(mark, clone);
+    }
+
+    #[test]
+    fn mark_erase_works() {
+        let dt = DateTime::now();
+        let mut mark = Mark::new(&dt.date);
+        let clone = mark.clone();
+        mark.write("This is content.");
+        mark.erase();
+        assert_eq!(mark, clone);
     }
 
     #[test]
