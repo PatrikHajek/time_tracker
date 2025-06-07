@@ -836,7 +836,9 @@ mod tests {
             action: Action::Start,
             sessions_path: PathBuf::from("sessions"),
         };
-        let session = Session::new(&config);
+        let mut session = Session::new(&config);
+        let date = now_plus_secs(30);
+        session.marks.push(Mark::new(&date));
         assert_eq!(session.start(), session.marks.first().unwrap().date);
     }
 
@@ -849,6 +851,7 @@ mod tests {
         let mut session = Session::new(&config);
         assert_eq!(session.end(), session.marks.last().unwrap().date);
         session.stop().unwrap();
+        session.marks.last_mut().unwrap().date = now_plus_secs(30);
         assert_eq!(session.end(), session.marks.last().unwrap().date);
     }
 
@@ -992,6 +995,8 @@ mod tests {
             sessions_path: PathBuf::from("sessions"),
         };
         let mut session = Session::new(&config);
+        // To have at least 2 marks.
+        session.mark().unwrap();
         let mut clone = session.clone();
         session.label(&Label::Skip);
         clone
@@ -1010,6 +1015,8 @@ mod tests {
             sessions_path: PathBuf::from("sessions"),
         };
         let mut session = Session::new(&config);
+        // To have at least 2 marks.
+        session.mark().unwrap();
         let clone = session.clone();
         session.label(&Label::Skip);
         session.unlabel(&Label::Skip);
