@@ -313,16 +313,14 @@ impl Session {
 
     fn label(&mut self, label: &Label) {
         self.marks
-            .iter_mut()
-            .last()
+            .last_mut()
             .expect("session must always have at least one mark")
             .add_label(&label);
     }
 
     fn unlabel(&mut self, label: &Label) {
         self.marks
-            .iter_mut()
-            .last()
+            .last_mut()
             .expect("session must always have at least one mark")
             .remove_label(&label);
     }
@@ -331,8 +329,7 @@ impl Session {
     fn write(&mut self, text: &str) -> Result<(), ()> {
         let mark = self
             .marks
-            .iter_mut()
-            .last()
+            .last_mut()
             .expect("session must always have at least one mark");
         if !mark.contents.is_empty() {
             return Err(());
@@ -609,8 +606,7 @@ fn write(config: &Config) -> Result<(), Box<dyn Error>> {
         if buf == "\n" || buf == "y\n" {
             session
                 .marks
-                .iter_mut()
-                .last()
+                .last_mut()
                 .expect("session must always have at least one mark")
                 .erase();
         } else {
@@ -999,12 +995,7 @@ mod tests {
         session.mark().unwrap();
         let mut clone = session.clone();
         session.label(&Label::Skip);
-        clone
-            .marks
-            .iter_mut()
-            .last()
-            .unwrap()
-            .add_label(&Label::Skip);
+        clone.marks.last_mut().unwrap().add_label(&Label::Skip);
         assert_eq!(session, clone);
     }
 
