@@ -94,6 +94,7 @@ enum Action {
     Label { label: Label },
     Unlabel { label: Label },
     Write { text: String },
+    Now,
     // Set,
 }
 
@@ -153,6 +154,12 @@ impl Action {
                 Action::Write {
                     text: args[0].to_owned(),
                 }
+            }
+            "now" => {
+                if args.len() != 0 {
+                    return Err("too many arguments")?;
+                }
+                Action::Now
             }
             name => return Err(format!("unrecognized command `{name}`")),
         };
@@ -339,6 +346,14 @@ impl Session {
         Ok(())
     }
 
+    fn now(&mut self) {
+        let mark = self
+            .marks
+            .last_mut()
+            .expect("session must always have at least one mark");
+        mark.date = DateTime::now().date;
+    }
+
     fn save(&self) -> Result<(), Box<dyn Error>> {
         let file = self.to_file()?;
         fs::write(&file.path, &file.contents).map_err(|e| format!("coudln't save session: {e}"))?;
@@ -508,6 +523,7 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
         Action::Label { .. } => label(&config),
         Action::Unlabel { .. } => unlabel(&config),
         Action::Write { .. } => write(&config),
+        Action::Now => now(&config),
     };
     Ok(result?)
 }
@@ -619,6 +635,16 @@ fn write(config: &Config) -> Result<(), Box<dyn Error>> {
     }
     session.save()?;
     println!("Text was successfully written to current mark");
+    Ok(())
+}
+
+fn now(config: &Config) -> Result<(), Box<dyn Error>> {
+    let Some(mut session) = Session::get_last(&config)? else {
+        return Err("no active session found")?;
+    };
+    session.now();
+    session.save()?;
+    println!("Updated current mark's date to current date");
     Ok(())
 }
 
@@ -774,6 +800,9 @@ mod tests {
                 text: String::from("this is content")
             }
         );
+
+        assert_eq!(Action::build("now", &[])?, Action::Now);
+        assert!(Action::build("now", &[String::from("hello")]).is_err());
 
         assert!(Action::build("hello", &[]).is_err());
 
@@ -1042,6 +1071,21 @@ mod tests {
         let mut session = Session::new(&config);
         session.write("Some content.").unwrap();
         assert!(session.write("Some other content.").is_err());
+    }
+
+    #[test]
+    fn session_now_works() {
+        let config = Config {
+            action: Action::Start,
+            sessions_path: PathBuf::from("sessions"),
+        };
+        let mut session = Session::new(&config);
+        session.mark().unwrap();
+        let clone = session.clone();
+        session.marks.last_mut().unwrap().date = now_plus_secs(30);
+        assert_ne!(session, clone);
+        session.now();
+        assert_eq!(session, clone);
     }
 
     #[test]
