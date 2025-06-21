@@ -289,6 +289,7 @@ impl Session {
     fn view(&self) -> String {
         assert!(self.marks.len() > 0);
         assert!(!(self.marks.len() == 1 && self.marks.last().unwrap().has_label(&Label::End)));
+        // TODO: move to it's own function
         let time: String = {
             let mut acc = 0;
             let mut mark_preceding = &self.marks[0];
