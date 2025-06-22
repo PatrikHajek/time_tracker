@@ -19,6 +19,8 @@ const MARK_HEADING_PREFIX: &str = "### ";
 const LABEL_PREFIX: &str = "- ";
 const LABEL_END: &str = "- end";
 const LABEL_SKIP: &str = "- skip";
+const LABEL_TAG: &str = "- tag";
+const LABEL_TAG_SURROUND: &str = "`";
 
 #[derive(PartialEq, Debug)]
 pub struct Config {
@@ -134,11 +136,9 @@ impl Action {
             "label" | "unlabel" => {
                 if args.len() == 0 {
                     return Err("no label specified")?;
-                } else if args.len() > 1 {
-                    return Err("too many arguments")?;
                 }
                 // TODO: forbid adding Label::End?
-                let label = Label::from_string(&format!("{LABEL_PREFIX}{}", &args[0]))?;
+                let label = Label::from_args(&args)?;
                 match name {
                     "label" => Action::Label { label },
                     "unlabel" => Action::Unlabel { label },
@@ -479,7 +479,7 @@ impl Mark {
             contents += &self
                 .labels
                 .iter()
-                .fold(String::new(), |acc, val| acc + "\n" + val.to_string());
+                .fold(String::new(), |acc, val| acc + "\n" + &val.to_string());
         }
         let trimmed = self.contents.trim();
         if !trimmed.is_empty() {
@@ -494,20 +494,71 @@ impl Mark {
 enum Label {
     End,
     Skip,
+    Tag { text: String },
 }
 impl Label {
-    fn from_string(text: &str) -> Result<Label, String> {
-        match text.trim() {
-            LABEL_END => Ok(Label::End),
-            LABEL_SKIP => Ok(Label::Skip),
-            _ => Err(format!("couldn't parse label from string '{}'", text)),
+    fn from_args(args: &[String]) -> Result<Label, String> {
+        if args.is_empty() {
+            return Err("not enough arguments")?;
+        }
+
+        let name = LABEL_PREFIX.to_owned() + args[0].trim();
+        if name == LABEL_END {
+            if args.len() > 1 {
+                return Err("too many arguments")?;
+            }
+            return Ok(Label::End);
+        } else if name == LABEL_SKIP {
+            if args.len() > 1 {
+                return Err("too many arguments")?;
+            }
+            return Ok(Label::Skip);
+        } else if name.starts_with(LABEL_TAG) {
+            if args.len() < 2 {
+                return Err("not enough arguments")?;
+            } else if args.len() > 2 {
+                return Err("too many arguments")?;
+            }
+            let tag = Label::Tag {
+                text: args[1].clone(),
+            };
+            return Ok(tag);
+        } else {
+            return Err(format!("couldn't parse label from args '{:?}'", &args));
         }
     }
 
-    fn to_string(&self) -> &str {
+    fn from_string(text: &str) -> Result<Label, String> {
+        let text = text.trim();
+        if text == LABEL_END {
+            return Ok(Label::End);
+        } else if text == LABEL_SKIP {
+            return Ok(Label::Skip);
+        } else if text.starts_with(&format!("{LABEL_TAG} {LABEL_TAG_SURROUND}"))
+            && text.ends_with(LABEL_TAG_SURROUND)
+        {
+            let start = format!("{LABEL_TAG} {LABEL_TAG_SURROUND}").len();
+            let end = text.len() - LABEL_TAG_SURROUND.len();
+            let tag_text = text[start..end].trim().to_owned();
+            if tag_text.is_empty() {
+                return Err("label tag cannot be empty")?;
+            }
+            let tag = Label::Tag { text: tag_text };
+            return Ok(tag);
+        } else {
+            return Err(format!("couldn't parse label from string '{}'", text));
+        }
+    }
+
+    fn to_string(&self) -> String {
         match self {
-            Label::End => LABEL_END,
-            Label::Skip => LABEL_SKIP,
+            Label::End => LABEL_END.to_owned(),
+            Label::Skip => LABEL_SKIP.to_owned(),
+            Label::Tag { text } => {
+                // There shouldn't be a way to store empty string in Label::Tag.
+                assert!(!text.is_empty());
+                format!("{LABEL_TAG} {LABEL_TAG_SURROUND}{text}{LABEL_TAG_SURROUND}")
+            }
         }
     }
 }
@@ -1343,16 +1394,71 @@ mod tests {
     }
 
     #[test]
+    fn label_from_args_works() -> Result<(), Box<dyn Error>> {
+        assert!(Label::from_args(&[]).is_err());
+        assert!(Label::from_args(&[String::from("hello")]).is_err());
+
+        assert_eq!(Label::from_args(&[String::from("end")])?, Label::End);
+        assert!(Label::from_args(&[String::from("end"), String::from("hello")]).is_err());
+
+        assert_eq!(Label::from_args(&[String::from("skip")])?, Label::Skip);
+        assert!(Label::from_args(&[String::from("skip"), String::from("hello")]).is_err());
+
+        assert!(Label::from_args(&[String::from("tag")]).is_err());
+        assert_eq!(
+            Label::from_args(&[String::from("tag"), String::from("rust")])?,
+            Label::Tag {
+                text: String::from("rust")
+            }
+        );
+        assert!(Label::from_args(&[
+            String::from("tag"),
+            String::from("rust"),
+            String::from("hello")
+        ])
+        .is_err());
+
+        Ok(())
+    }
+
+    #[test]
     fn label_from_string_works() {
         assert_eq!(Label::from_string(LABEL_END).unwrap(), Label::End);
+
         assert_eq!(Label::from_string(LABEL_SKIP).unwrap(), Label::Skip);
+
+        assert!(Label::from_string(&format!(
+            "{LABEL_TAG} {LABEL_TAG_SURROUND}{LABEL_TAG_SURROUND}"
+        ))
+        .is_err());
+        assert!(Label::from_string(&format!("{LABEL_TAG} {LABEL_TAG_SURROUND}rust")).is_err());
+        assert!(Label::from_string(&format!("rust{LABEL_TAG_SURROUND}")).is_err());
+        assert_eq!(
+            Label::from_string(&format!(
+                "{LABEL_TAG} {LABEL_TAG_SURROUND}rust{LABEL_TAG_SURROUND}"
+            ))
+            .unwrap(),
+            Label::Tag {
+                text: String::from("rust")
+            }
+        );
+
         assert!(Label::from_string("some string").is_err())
     }
 
     #[test]
     fn label_to_string_works() {
         assert_eq!(Label::End.to_string(), LABEL_END);
+
         assert_eq!(Label::Skip.to_string(), LABEL_SKIP);
+
+        assert_eq!(
+            Label::Tag {
+                text: String::from("rust"),
+            }
+            .to_string(),
+            format!("{LABEL_TAG} {LABEL_TAG_SURROUND}rust{LABEL_TAG_SURROUND}")
+        );
     }
 
     #[test]
