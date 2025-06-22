@@ -319,6 +319,7 @@ impl Session {
         str
     }
 
+    // FIX: can add label after session ended., fix everywhere
     fn label(&mut self, label: &Label) {
         self.marks
             .last_mut()
@@ -656,6 +657,7 @@ fn unlabel(config: &Config) -> Result<(), Box<dyn Error>> {
     };
     session.unlabel(&label);
     session.save()?;
+    // FIX: logs even when no label was actually removed
     println!("Removed label: {:?}", label);
     Ok(())
 }
