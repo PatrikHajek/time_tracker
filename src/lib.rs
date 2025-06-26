@@ -272,6 +272,21 @@ impl Session {
             .has_label(&Label::End)
     }
 
+    fn get_time(&self) -> u64 {
+        let mut acc = 0;
+        let mut mark_preceding = &self.marks[0];
+        for mark in self.marks.iter().skip(1) {
+            if !mark_preceding.has_label(&Label::Skip) {
+                acc += DateTime::get_time(&mark_preceding.date, &mark.date);
+            }
+            mark_preceding = &mark;
+        }
+        if self.is_active() && !mark_preceding.has_label(&Label::Skip) {
+            acc += DateTime::get_time(&mark_preceding.date, &DateTime::now().date);
+        }
+        acc
+    }
+
     fn stop(&mut self) -> Result<(), &'static str> {
         if !self.is_active() {
             return Err("session already ended");
@@ -297,20 +312,7 @@ impl Session {
         assert!(self.marks.len() > 0);
         assert!(!(self.marks.len() == 1 && self.marks.last().unwrap().has_label(&Label::End)));
         // TODO: move to it's own function
-        let time: String = {
-            let mut acc = 0;
-            let mut mark_preceding = &self.marks[0];
-            for mark in self.marks.iter().skip(1) {
-                if !mark_preceding.has_label(&Label::Skip) {
-                    acc += DateTime::get_time(&mark_preceding.date, &mark.date);
-                }
-                mark_preceding = &mark;
-            }
-            if self.is_active() && !mark_preceding.has_label(&Label::Skip) {
-                acc += DateTime::get_time(&mark_preceding.date, &DateTime::now().date);
-            }
-            DateTime::get_time_hr_from_milli(acc)
-        };
+        let time = DateTime::get_time_hr_from_milli(self.get_time());
         let mut str = String::new();
         if !self.is_active() {
             str += "No active session, last session:\n";
@@ -949,6 +951,32 @@ mod tests {
         assert!(session.marks.last().unwrap().has_label(&Label::End));
     }
 
+    // It ignores `mark_first` and counts to current time, so `mark_second` is the final time.
+    #[test]
+    fn session_get_time_ignores_marks_if_they_have_label_skip() {
+        let mut mark_first = Mark::new(&now_plus_secs(-3 * 60 * 60));
+        mark_first.add_label(&Label::Skip);
+        let mark_second = Mark::new(&now_plus_secs(-54 * 60 - 10)); // 54m 10s
+        let mark_third = Mark::new(&now_plus_secs(-10 * 60));
+        let session = Session {
+            path: PathBuf::from("sessions"),
+            marks: vec![mark_first, mark_second, mark_third],
+        };
+        assert_eq!(session.get_time(), (54 * 60 + 10) * 1000);
+    }
+
+    #[test]
+    fn session_get_time_ignores_current_time_if_last_mark_has_label_skip() {
+        let mark_first = Mark::new(&now_plus_secs(-3 * 60 * 60));
+        let mut mark_second = Mark::new(&now_plus_secs(-1 * 60 * 60 - 33 * 60 - 20)); // 1h 33m 20s
+        mark_second.add_label(&Label::Skip);
+        let session = Session {
+            path: PathBuf::from("sessions"),
+            marks: vec![mark_first, mark_second],
+        };
+        assert_eq!(session.get_time(), (1 * 60 * 60 + 26 * 60 + 40) * 1000);
+    }
+
     #[test]
     fn session_stop_works() {
         let config = Config {
@@ -1040,32 +1068,6 @@ mod tests {
             session.view(),
             "No active session, last session:\nTime: 1h 30m 0s"
         );
-    }
-
-    // It ignores `mark_first` and counts to current time, so `mark_second` is the final time.
-    #[test]
-    fn session_view_ignores_marks_if_they_have_label_skip() {
-        let mut mark_first = Mark::new(&now_plus_secs(-3 * 60 * 60));
-        mark_first.add_label(&Label::Skip);
-        let mark_second = Mark::new(&now_plus_secs(-54 * 60 - 10)); // 54m 10s
-        let mark_third = Mark::new(&now_plus_secs(-10 * 60));
-        let session = Session {
-            path: PathBuf::from("sessions"),
-            marks: vec![mark_first, mark_second, mark_third],
-        };
-        assert_eq!(session.view(), "Time: 0h 54m 10s");
-    }
-
-    #[test]
-    fn session_view_ignores_current_time_if_last_mark_has_label_skip() {
-        let mark_first = Mark::new(&now_plus_secs(-3 * 60 * 60));
-        let mut mark_second = Mark::new(&now_plus_secs(-1 * 60 * 60 - 33 * 60 - 20)); // 1h 33m 20s
-        mark_second.add_label(&Label::Skip);
-        let session = Session {
-            path: PathBuf::from("sessions"),
-            marks: vec![mark_first, mark_second],
-        };
-        assert_eq!(session.view(), "Time: 1h 26m 40s");
     }
 
     #[test]
