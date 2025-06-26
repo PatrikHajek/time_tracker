@@ -233,6 +233,22 @@ impl Session {
         }
     }
 
+    fn get_last(config: &Config) -> Result<Option<Session>, Box<dyn Error>> {
+        let mut dir = fs::read_dir(&config.sessions_path)
+            .map_err(|_err| "session directory doesn't exist")?
+            .map(|res| res.map(|v| v.path()))
+            .collect::<Result<Vec<_>, io::Error>>()?;
+        dir.sort();
+        if dir.len() == 0 {
+            return Ok(None);
+        }
+        let path = &dir[dir.len() - 1];
+        let contents = fs::read_to_string(&path)?;
+        let file = SessionFile::build(&path, &contents)?;
+        let session = Session::from_file(&file)?;
+        Ok(Some(session))
+    }
+
     fn start(&self) -> chrono::DateTime<chrono::Local> {
         self.marks
             .first()
@@ -254,22 +270,6 @@ impl Session {
             .last()
             .expect("must always have at least one mark")
             .has_label(&Label::End)
-    }
-
-    fn get_last(config: &Config) -> Result<Option<Session>, Box<dyn Error>> {
-        let mut dir = fs::read_dir(&config.sessions_path)
-            .map_err(|_err| "session directory doesn't exist")?
-            .map(|res| res.map(|v| v.path()))
-            .collect::<Result<Vec<_>, io::Error>>()?;
-        dir.sort();
-        if dir.len() == 0 {
-            return Ok(None);
-        }
-        let path = &dir[dir.len() - 1];
-        let contents = fs::read_to_string(&path)?;
-        let file = SessionFile::build(&path, &contents)?;
-        let session = Session::from_file(&file)?;
-        Ok(Some(session))
     }
 
     fn stop(&mut self) -> Result<(), &'static str> {
