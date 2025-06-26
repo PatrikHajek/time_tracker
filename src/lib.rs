@@ -311,7 +311,6 @@ impl Session {
     fn view(&self) -> String {
         assert!(self.marks.len() > 0);
         assert!(!(self.marks.len() == 1 && self.marks.last().unwrap().has_label(&Label::End)));
-        // TODO: move to it's own function
         let time = DateTime::get_time_hr_from_milli(self.get_time());
         let mut str = String::new();
         if !self.is_active() {
