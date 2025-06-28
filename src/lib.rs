@@ -96,6 +96,7 @@ enum Action {
     Label { label: Label },
     Unlabel { label: Label },
     Write { text: String },
+    // TODO: rename
     Now,
     Version,
     // Set,
