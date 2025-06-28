@@ -741,6 +741,7 @@ struct DateTime {
     date: chrono::DateTime<chrono::Local>,
     formatted: String,
 }
+
 impl DateTime {
     fn now() -> DateTime {
         let now = chrono::Local::now();
