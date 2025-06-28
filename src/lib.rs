@@ -242,11 +242,7 @@ impl Session {
     }
 
     fn get_last(config: &Config) -> Result<Option<Session>, Box<dyn Error>> {
-        let mut dir = fs::read_dir(&config.sessions_path)
-            .map_err(|_err| "session directory doesn't exist")?
-            .map(|res| res.map(|v| v.path()))
-            .collect::<Result<Vec<_>, io::Error>>()?;
-        dir.sort();
+        let dir = read_sessions_dir(&config)?;
         if dir.len() == 0 {
             return Ok(None);
         }
@@ -794,6 +790,15 @@ fn resolve_path(path: &str) -> Result<PathBuf, &'static str> {
         return Ok(path);
     }
     Ok(PathBuf::from(path))
+}
+
+fn read_sessions_dir(config: &Config) -> Result<Vec<PathBuf>, Box<dyn Error>> {
+    let mut dir = fs::read_dir(&config.sessions_path)
+        .map_err(|_err| "session directory doesn't exist")?
+        .map(|res| res.map(|v| v.path()))
+        .collect::<Result<Vec<_>, io::Error>>()?;
+    dir.sort();
+    Ok(dir)
 }
 
 #[cfg(test)]
