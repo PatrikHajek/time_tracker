@@ -97,6 +97,7 @@ enum Action {
     Unlabel { label: Label },
     Write { text: String },
     Now,
+    Version,
     // Set,
 }
 
@@ -160,6 +161,12 @@ impl Action {
                     return Err("too many arguments")?;
                 }
                 Action::Now
+            }
+            "version" => {
+                if args.len() != 0 {
+                    return Err("too many arguments")?;
+                }
+                Action::Version
             }
             name => return Err(format!("unrecognized command `{name}`")),
         };
@@ -583,6 +590,7 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
         Action::Unlabel { .. } => unlabel(&config),
         Action::Write { .. } => write(&config),
         Action::Now => now(&config),
+        Action::Version => Ok(version()),
     };
     Ok(result?)
 }
@@ -706,6 +714,11 @@ fn now(config: &Config) -> Result<(), Box<dyn Error>> {
     session.save()?;
     println!("Updated current mark's date to current date");
     Ok(())
+}
+
+fn version() {
+    let version = env!("CARGO_PKG_VERSION");
+    println!("v{version}");
 }
 
 struct DateTime {
