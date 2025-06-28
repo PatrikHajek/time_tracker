@@ -312,11 +312,17 @@ impl Session {
         assert!(self.marks.len() > 0);
         assert!(!(self.marks.len() == 1 && self.marks.last().unwrap().has_label(&Label::End)));
         let time = DateTime::get_time_hr_from_milli(self.get_time());
+        let start = DateTime::format(&self.start());
         let mut str = String::new();
         if !self.is_active() {
             str += "No active session, last session:\n";
         }
-        str += &format!("Time: {time}");
+        str += &format!(
+            "\
+            Time: {time}\n\
+            Start: {start}\
+            "
+        );
         str
     }
 
@@ -1056,8 +1062,17 @@ mod tests {
             path: PathBuf::from("sessions"),
             marks: vec![mark_start, mark_end.clone()],
         };
+        let start = DateTime::format(&session.start());
         // Goes up to current time.
-        assert_eq!(session.view(), "Time: 2h 0m 0s");
+        assert_eq!(
+            session.view(),
+            format!(
+                "\
+                Time: 2h 0m 0s\n\
+                Start: {start}\
+                "
+            )
+        );
 
         session.marks.pop();
         session.stop().unwrap();
@@ -1065,7 +1080,13 @@ mod tests {
         mark.date = mark_end.date;
         assert_eq!(
             session.view(),
-            "No active session, last session:\nTime: 1h 30m 0s"
+            format!(
+                "\
+                No active session, last session:\n\
+                Time: 1h 30m 0s\n\
+                Start: {start}\
+                "
+            )
         );
     }
 
