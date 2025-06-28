@@ -312,11 +312,20 @@ impl Session {
         Ok(())
     }
 
-    fn view(&self) -> String {
+    /// Week - Session started in the previous week that ends in the current week is still counted to the
+    /// previous week.
+    fn view(&self, sessions: &Vec<Session>) -> String {
         assert!(self.marks.len() > 0);
         assert!(!(self.marks.len() == 1 && self.marks.last().unwrap().has_label(&Label::End)));
+        assert!(sessions.len() > 0);
         let time = DateTime::get_time_hr_from_milli(self.get_time());
         let start = DateTime::format(&self.start());
+        let start_of_week = DateTime::get_start_of_week();
+        let week_time = sessions
+            .iter()
+            .filter(|v| v.start().timestamp_millis() - start_of_week.timestamp_millis() >= 0)
+            .fold(0, |acc, val| acc + val.get_time());
+        let week_time = DateTime::get_time_hr_from_milli(week_time);
         let mut str = String::new();
         if !self.is_active() {
             str += "No active session, last session:\n";
@@ -324,7 +333,8 @@ impl Session {
         str += &format!(
             "\
             Time: {time}\n\
-            Start: {start}\
+            Start: {start}\n\
+            Week: {week_time}\
             "
         );
         str
@@ -643,7 +653,16 @@ fn view(config: &Config) -> Result<(), Box<dyn Error>> {
     let Some(session) = Session::get_last(&config)? else {
         return Err("no active session found")?;
     };
-    println!("{}", session.view());
+    let sessions = read_sessions_dir(&config)?
+        .iter()
+        .map(|v| -> Result<Session, Box<dyn Error>> {
+            let contents = fs::read_to_string(&v)?;
+            let file = SessionFile::build(&v, &contents)?;
+            let session = Session::from_file(&file)?;
+            Ok(session)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    println!("{}", session.view(&sessions));
     Ok(())
 }
 
@@ -1098,13 +1117,49 @@ mod tests {
             marks: vec![mark_start, mark_end.clone()],
         };
         let start = DateTime::format(&session.start());
+
+        // Gets ignored because it's not in the current week.
+        let mut session_second = Session {
+            path: session.path.clone(),
+            marks: vec![
+                Mark::new(&now_plus_secs(-12 * 24 * 60 * 60)),
+                Mark::new(&now_plus_secs(-9 * 24 * 60 * 60)),
+            ],
+        };
+        session_second
+            .marks
+            .last_mut()
+            .unwrap()
+            .add_label(&Label::End);
+
+        let mut session_third = Session {
+            path: session.path.clone(),
+            marks: vec![
+                Mark::new(&now_plus_secs(-4 * 24 * 60 * 60)),
+                Mark::new(&now_plus_secs(-3 * 24 * 60 * 60)),
+            ],
+        };
+        session_third
+            .marks
+            .last_mut()
+            .unwrap()
+            .add_label(&Label::End);
+
+        // Not ordered.
+        let sessions = vec![
+            session.clone(),
+            session_second.clone(),
+            session_third.clone(),
+        ];
+
         // Goes up to current time.
         assert_eq!(
-            session.view(),
+            session.view(&sessions),
             format!(
                 "\
                 Time: 2h 0m 0s\n\
-                Start: {start}\
+                Start: {start}\n\
+                Week: 26h 0m 0s\
                 "
             )
         );
@@ -1113,13 +1168,19 @@ mod tests {
         session.stop().unwrap();
         let mark = &mut session.marks[1];
         mark.date = mark_end.date;
+        let sessions = vec![
+            session.clone(),
+            session_second.clone(),
+            session_third.clone(),
+        ];
         assert_eq!(
-            session.view(),
+            session.view(&sessions),
             format!(
                 "\
                 No active session, last session:\n\
                 Time: 1h 30m 0s\n\
-                Start: {start}\
+                Start: {start}\n\
+                Week: 25h 30m 0s\
                 "
             )
         );
