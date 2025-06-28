@@ -7,7 +7,7 @@ use std::{
     str::FromStr,
 };
 
-use chrono::Timelike;
+use chrono::{Datelike, Timelike};
 
 const CONFIG_PATH: &str = "~/.timetracker.toml";
 const CONFIG_SESSIONS_PATH: &str = "sessions_path";
@@ -741,6 +741,22 @@ impl DateTime {
 
     fn format(date: &chrono::DateTime<chrono::Local>) -> String {
         date.format("%FT%T%:z").to_string()
+    }
+
+    // TEST: that it works when the months change in the middle of the week.
+    #[allow(dead_code)]
+    fn get_start_of_week() -> chrono::DateTime<chrono::Local> {
+        let date = DateTime::now().date;
+        let days_since_monday: i64 = date.weekday().num_days_from_monday().into();
+        let date: chrono::DateTime<chrono::Local> = chrono::DateTime::from_timestamp_millis(
+            date.timestamp_millis() - days_since_monday * 24 * 60 * 60 * 1000,
+        )
+        .unwrap()
+        .into();
+        let date = date
+            .with_time(chrono::NaiveTime::from_hms_opt(0, 0, 0).unwrap())
+            .unwrap();
+        date
     }
 
     // TODO: move to it's own struct or combine with std::time::Duration?
@@ -1521,6 +1537,20 @@ mod tests {
         assert_eq!(date.offset(), now.offset());
 
         assert_eq!(formatted, DateTime::format(&date));
+    }
+
+    #[test]
+    fn date_time_get_start_of_week_works() {
+        let date = DateTime::get_start_of_week();
+        assert_eq!(date.weekday(), chrono::Weekday::Mon);
+        assert!(
+            DateTime::now().date.timestamp_millis() - date.timestamp_millis()
+                < 7 * 24 * 60 * 60 * 1000
+        );
+        let time = date.time();
+        assert_eq!(time.hour(), 0);
+        assert_eq!(time.minute(), 0);
+        assert_eq!(time.second(), 0);
     }
 
     #[test]
