@@ -369,7 +369,6 @@ impl Session {
         Ok(())
     }
 
-    // FIX: can add label after session ended., fix everywhere
     fn label(&mut self, label: &Label) -> bool {
         self.marks
             .last_mut()
@@ -467,6 +466,7 @@ impl Mark {
         }
     }
 
+    // TODO: remove all label manipulation methods and use the labels set directly?
     fn add_label(&mut self, label: &Label) -> bool {
         self.labels.insert(label.clone())
     }
