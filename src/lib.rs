@@ -180,6 +180,7 @@ struct SessionFile {
     path: PathBuf,
     contents: String,
 }
+
 impl SessionFile {
     // TODO: add checks for path
     fn build(path: &PathBuf, contents: &str) -> Result<SessionFile, &'static str> {
@@ -518,6 +519,7 @@ enum Label {
     Skip,
     Tag { text: String },
 }
+
 impl Label {
     fn from_args(args: &[String]) -> Result<Label, String> {
         if args.is_empty() {
