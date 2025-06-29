@@ -370,18 +370,18 @@ impl Session {
     }
 
     // FIX: can add label after session ended., fix everywhere
-    fn label(&mut self, label: &Label) {
+    fn label(&mut self, label: &Label) -> bool {
         self.marks
             .last_mut()
             .expect("session must always have at least one mark")
-            .add_label(&label);
+            .add_label(&label)
     }
 
-    fn unlabel(&mut self, label: &Label) {
+    fn unlabel(&mut self, label: &Label) -> bool {
         self.marks
             .last_mut()
             .expect("session must always have at least one mark")
-            .remove_label(&label);
+            .remove_label(&label)
     }
 
     /// Returns error if the content of the current mark is not empty.
@@ -467,12 +467,12 @@ impl Mark {
         }
     }
 
-    fn add_label(&mut self, label: &Label) {
-        self.labels.insert(label.clone());
+    fn add_label(&mut self, label: &Label) -> bool {
+        self.labels.insert(label.clone())
     }
 
-    fn remove_label(&mut self, label: &Label) {
-        self.labels.remove(&label);
+    fn remove_label(&mut self, label: &Label) -> bool {
+        self.labels.remove(&label)
     }
 
     fn has_label(&self, label: &Label) -> bool {
@@ -694,9 +694,13 @@ fn label(config: &Config) -> Result<(), Box<dyn Error>> {
     let Action::Label { label } = &config.action else {
         panic!("wrong action, expected Action::Label");
     };
-    session.label(&label);
+    let was_added = session.label(&label);
     session.save()?;
-    println!("Added label: {:?}", label);
+    if was_added {
+        println!("Added label: {label:?}");
+    } else {
+        println!("Label `{label:?}` already present");
+    }
     Ok(())
 }
 
@@ -707,10 +711,13 @@ fn unlabel(config: &Config) -> Result<(), Box<dyn Error>> {
     let Action::Unlabel { label } = &config.action else {
         panic!("wrong action, expected Action::Unlabel");
     };
-    session.unlabel(&label);
+    let was_removed = session.unlabel(&label);
     session.save()?;
-    // FIX: logs even when no label was actually removed
-    println!("Removed label: {:?}", label);
+    if was_removed {
+        println!("Removed label: {label:?}");
+    } else {
+        println!("Label `{label:?}` not present")
+    }
     Ok(())
 }
 
