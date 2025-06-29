@@ -412,6 +412,7 @@ impl Session {
         Ok(())
     }
 
+    // TODO: make this and all other from/to methods idiomatic using traits
     fn from_file(file: &SessionFile) -> Result<Session, Box<dyn Error>> {
         let mut marks: Vec<Mark> = Vec::new();
         let marks_contents = SessionFile::get_heading_with_contents(MARKS_HEADING, &file.contents);
@@ -688,6 +689,7 @@ fn view(config: &Config) -> Result<(), Box<dyn Error>> {
 
 fn label(config: &Config) -> Result<(), Box<dyn Error>> {
     let Some(mut session) = Session::get_last(&config)? else {
+        // TODO: message should be more like: "no session found", change all other occurrences
         return Err("no active session found")?;
     };
     let Action::Label { label } = &config.action else {
