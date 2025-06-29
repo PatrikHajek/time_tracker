@@ -208,7 +208,6 @@ impl Aggregator {
         assert!(
             !(session.marks.len() == 1 && session.marks.last().unwrap().has_label(&Label::End))
         );
-        assert!(self.sessions.len() > 0);
         let time = DateTime::get_time_hr_from_milli(session.get_time());
         let start = DateTime::format(&session.start());
         let start_of_week = DateTime::get_start_of_week();
