@@ -175,6 +175,64 @@ impl Action {
     }
 }
 
+struct Aggregator {
+    sessions: Vec<Session>,
+}
+
+impl Aggregator {
+    fn build(config: &Config) -> Result<Aggregator, Box<dyn Error>> {
+        let sessions = read_sessions_dir(&config)?
+            .iter()
+            .map(|v| -> Result<Session, Box<dyn Error>> {
+                let contents = fs::read_to_string(&v)?;
+                let file = SessionFile::build(&v, &contents)?;
+                let session = Session::from_file(&file)?;
+                Ok(session)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        if sessions.is_empty() {
+            return Err("session directory is empty")?;
+        }
+        let aggregator = Aggregator { sessions };
+        Ok(aggregator)
+    }
+
+    /// Week - Session started in the previous week that ends in the current week is still counted to the
+    /// previous week.
+    fn view(&self) -> String {
+        let session = self
+            .sessions
+            .last()
+            .expect("must always have at least one session");
+        assert!(session.marks.len() > 0);
+        assert!(
+            !(session.marks.len() == 1 && session.marks.last().unwrap().has_label(&Label::End))
+        );
+        assert!(self.sessions.len() > 0);
+        let time = DateTime::get_time_hr_from_milli(session.get_time());
+        let start = DateTime::format(&session.start());
+        let start_of_week = DateTime::get_start_of_week();
+        let week_time = self
+            .sessions
+            .iter()
+            .filter(|v| v.start().timestamp_millis() - start_of_week.timestamp_millis() >= 0)
+            .fold(0, |acc, val| acc + val.get_time());
+        let week_time = DateTime::get_time_hr_from_milli(week_time);
+        let mut str = String::new();
+        if !session.is_active() {
+            str += "No active session, last session:\n";
+        }
+        str += &format!(
+            "\
+            Time: {time}\n\
+            Start: {start}\n\
+            Week: {week_time}\
+            "
+        );
+        str
+    }
+}
+
 #[derive(PartialEq, Debug)]
 struct SessionFile {
     path: PathBuf,
@@ -311,34 +369,6 @@ impl Session {
         let mark = Mark::new(&dt.date);
         self.marks.push(mark);
         Ok(())
-    }
-
-    /// Week - Session started in the previous week that ends in the current week is still counted to the
-    /// previous week.
-    fn view(&self, sessions: &Vec<Session>) -> String {
-        assert!(self.marks.len() > 0);
-        assert!(!(self.marks.len() == 1 && self.marks.last().unwrap().has_label(&Label::End)));
-        assert!(sessions.len() > 0);
-        let time = DateTime::get_time_hr_from_milli(self.get_time());
-        let start = DateTime::format(&self.start());
-        let start_of_week = DateTime::get_start_of_week();
-        let week_time = sessions
-            .iter()
-            .filter(|v| v.start().timestamp_millis() - start_of_week.timestamp_millis() >= 0)
-            .fold(0, |acc, val| acc + val.get_time());
-        let week_time = DateTime::get_time_hr_from_milli(week_time);
-        let mut str = String::new();
-        if !self.is_active() {
-            str += "No active session, last session:\n";
-        }
-        str += &format!(
-            "\
-            Time: {time}\n\
-            Start: {start}\n\
-            Week: {week_time}\
-            "
-        );
-        str
     }
 
     // FIX: can add label after session ended., fix everywhere
@@ -652,19 +682,8 @@ fn path(config: &Config) -> Result<(), Box<dyn Error>> {
 }
 
 fn view(config: &Config) -> Result<(), Box<dyn Error>> {
-    let Some(session) = Session::get_last(&config)? else {
-        return Err("no active session found")?;
-    };
-    let sessions = read_sessions_dir(&config)?
-        .iter()
-        .map(|v| -> Result<Session, Box<dyn Error>> {
-            let contents = fs::read_to_string(&v)?;
-            let file = SessionFile::build(&v, &contents)?;
-            let session = Session::from_file(&file)?;
-            Ok(session)
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    println!("{}", session.view(&sessions));
+    let aggregator = Aggregator::build(&config)?;
+    println!("{}", aggregator.view());
     Ok(())
 }
 
@@ -927,6 +946,87 @@ mod tests {
     }
 
     #[test]
+    fn aggregator_view_works() {
+        let mark_start = Mark::new(&now_plus_secs(-2 * 60 * 60));
+        let mark_end = Mark::new(&now_plus_secs(-30 * 60));
+        let mut session_third = Session {
+            path: PathBuf::from("sessions"),
+            marks: vec![mark_start, mark_end.clone()],
+        };
+        let start = DateTime::format(&session_third.start());
+
+        // Gets ignored because it's not in the current week.
+        let mut session_first = Session {
+            path: session_third.path.clone(),
+            marks: vec![
+                Mark::new(&now_plus_secs(-12 * 24 * 60 * 60)),
+                Mark::new(&now_plus_secs(-9 * 24 * 60 * 60)),
+            ],
+        };
+        session_first
+            .marks
+            .last_mut()
+            .unwrap()
+            .add_label(&Label::End);
+
+        let mut session_second = Session {
+            path: session_third.path.clone(),
+            marks: vec![
+                Mark::new(&now_plus_secs(-4 * 24 * 60 * 60)),
+                Mark::new(&now_plus_secs(-3 * 24 * 60 * 60)),
+            ],
+        };
+        session_second
+            .marks
+            .last_mut()
+            .unwrap()
+            .add_label(&Label::End);
+
+        let aggregator = Aggregator {
+            sessions: vec![
+                session_first.clone(),
+                session_second.clone(),
+                session_third.clone(),
+            ],
+        };
+
+        // Goes up to current time.
+        assert_eq!(
+            aggregator.view(),
+            format!(
+                "\
+                Time: 2h 0m 0s\n\
+                Start: {start}\n\
+                Week: 26h 0m 0s\
+                "
+            )
+        );
+
+        session_third.marks.pop();
+        session_third.stop().unwrap();
+        let mark = &mut session_third.marks[1];
+        mark.date = mark_end.date;
+        let aggregator = Aggregator {
+            sessions: vec![
+                session_first.clone(),
+                session_second.clone(),
+                session_third.clone(),
+            ],
+        };
+        assert_eq!(
+            aggregator.view(),
+            format!(
+                "\
+                No active session, last session:\n\
+                Time: 1h 30m 0s\n\
+                Start: {start}\n\
+                Week: 25h 30m 0s\
+                "
+            )
+        );
+    }
+
+    #[test]
     fn session_file_build_works() {
         let path = PathBuf::new();
         let contents = get_template(&DateTime::now().formatted);
@@ -1109,84 +1209,6 @@ mod tests {
         let clone = session.clone();
         assert!(session.mark().is_err());
         assert_eq!(session, clone);
-    }
-
-    #[test]
-    fn session_view_works() {
-        let mark_start = Mark::new(&now_plus_secs(-2 * 60 * 60));
-        let mark_end = Mark::new(&now_plus_secs(-30 * 60));
-        let mut session = Session {
-            path: PathBuf::from("sessions"),
-            marks: vec![mark_start, mark_end.clone()],
-        };
-        let start = DateTime::format(&session.start());
-
-        // Gets ignored because it's not in the current week.
-        let mut session_second = Session {
-            path: session.path.clone(),
-            marks: vec![
-                Mark::new(&now_plus_secs(-12 * 24 * 60 * 60)),
-                Mark::new(&now_plus_secs(-9 * 24 * 60 * 60)),
-            ],
-        };
-        session_second
-            .marks
-            .last_mut()
-            .unwrap()
-            .add_label(&Label::End);
-
-        let mut session_third = Session {
-            path: session.path.clone(),
-            marks: vec![
-                Mark::new(&now_plus_secs(-4 * 24 * 60 * 60)),
-                Mark::new(&now_plus_secs(-3 * 24 * 60 * 60)),
-            ],
-        };
-        session_third
-            .marks
-            .last_mut()
-            .unwrap()
-            .add_label(&Label::End);
-
-        // Not ordered.
-        let sessions = vec![
-            session.clone(),
-            session_second.clone(),
-            session_third.clone(),
-        ];
-
-        // Goes up to current time.
-        assert_eq!(
-            session.view(&sessions),
-            format!(
-                "\
-                Time: 2h 0m 0s\n\
-                Start: {start}\n\
-                Week: 26h 0m 0s\
-                "
-            )
-        );
-
-        session.marks.pop();
-        session.stop().unwrap();
-        let mark = &mut session.marks[1];
-        mark.date = mark_end.date;
-        let sessions = vec![
-            session.clone(),
-            session_second.clone(),
-            session_third.clone(),
-        ];
-        assert_eq!(
-            session.view(&sessions),
-            format!(
-                "\
-                No active session, last session:\n\
-                Time: 1h 30m 0s\n\
-                Start: {start}\n\
-                Week: 25h 30m 0s\
-                "
-            )
-        );
     }
 
     #[test]
