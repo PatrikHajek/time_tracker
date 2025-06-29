@@ -96,8 +96,7 @@ enum Action {
     Label { label: Label },
     Unlabel { label: Label },
     Write { text: String },
-    // TODO: rename
-    Now,
+    Remark,
     Version,
     // Set,
 }
@@ -157,11 +156,11 @@ impl Action {
                     text: args[0].to_owned(),
                 }
             }
-            "now" => {
+            "remark" => {
                 if args.len() != 0 {
                     return Err("too many arguments")?;
                 }
-                Action::Now
+                Action::Remark
             }
             "version" => {
                 if args.len() != 0 {
@@ -398,7 +397,7 @@ impl Session {
         Ok(())
     }
 
-    fn now(&mut self) {
+    fn remark(&mut self) {
         let mark = self
             .marks
             .last_mut()
@@ -628,7 +627,7 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
         Action::Label { .. } => label(&config),
         Action::Unlabel { .. } => unlabel(&config),
         Action::Write { .. } => write(&config),
-        Action::Now => now(&config),
+        Action::Remark => remark(&config),
         Action::Version => Ok(version()),
     };
     Ok(result?)
@@ -744,11 +743,11 @@ fn write(config: &Config) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn now(config: &Config) -> Result<(), Box<dyn Error>> {
+fn remark(config: &Config) -> Result<(), Box<dyn Error>> {
     let Some(mut session) = Session::get_last(&config)? else {
         return Err("no active session found")?;
     };
-    session.now();
+    session.remark();
     session.save()?;
     println!("Updated current mark's date to current date");
     Ok(())
@@ -938,8 +937,8 @@ mod tests {
             }
         );
 
-        assert_eq!(Action::build("now", &[])?, Action::Now);
-        assert!(Action::build("now", &[String::from("hello")]).is_err());
+        assert_eq!(Action::build("remark", &[])?, Action::Remark);
+        assert!(Action::build("remark", &[String::from("hello")]).is_err());
 
         assert!(Action::build("hello", &[]).is_err());
 
@@ -1271,7 +1270,7 @@ mod tests {
     }
 
     #[test]
-    fn session_now_works() {
+    fn session_remark_works() {
         let config = Config {
             action: Action::Start,
             sessions_path: PathBuf::from("sessions"),
@@ -1281,7 +1280,7 @@ mod tests {
         let clone = session.clone();
         session.marks.last_mut().unwrap().date = now_plus_secs(30);
         assert_ne!(session, clone);
-        session.now();
+        session.remark();
         assert_eq!(session, clone);
     }
 
