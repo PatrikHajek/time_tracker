@@ -840,6 +840,7 @@ fn resolve_path(path: &str) -> Result<PathBuf, &'static str> {
     Ok(PathBuf::from(path))
 }
 
+// TODO: move to Aggregator
 fn read_sessions_dir(config: &Config) -> Result<Vec<PathBuf>, Box<dyn Error>> {
     let mut dir = fs::read_dir(&config.sessions_path)
         .map_err(|_err| "session directory doesn't exist")?
