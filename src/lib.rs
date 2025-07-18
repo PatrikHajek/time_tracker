@@ -1297,6 +1297,10 @@ mod tests {
         let mark_first_dt = DateTime {
             date: date.with_hour(5).unwrap(),
             formatted: DateTime::format(&date.with_hour(5).unwrap()),
+            // FIX: same time for both marks breaks reading of them - doesn't read labels and keeps
+            // the whole content as is in the file
+            // date: date.with_hour(5).unwrap().with_minute(23).unwrap(),
+            // formatted: DateTime::format(&date.with_hour(5).unwrap().with_minute(23).unwrap()),
         };
         let mark_first = Mark::new(&mark_first_dt.date);
         let mark_second_dt = DateTime {
