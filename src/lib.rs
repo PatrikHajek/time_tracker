@@ -767,6 +767,7 @@ fn version() {
 
 struct DateTime {
     date: chrono::DateTime<chrono::Local>,
+    // TODO: make this a method instead?
     formatted: String,
 }
 
@@ -953,6 +954,7 @@ mod tests {
         Ok(())
     }
 
+    // FIX: Breaks at the start of each Monday.
     #[test]
     fn aggregator_view_works() {
         let mark_start = Mark::new(&now_plus_secs(-2 * 60 * 60));
