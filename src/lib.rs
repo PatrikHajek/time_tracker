@@ -824,6 +824,79 @@ impl DateTime {
         let hours = timestamp;
         format!("{hours}h {minutes}m {seconds}s")
     }
+
+    fn modify_date_time_by_relative_input(
+        date: &chrono::DateTime<chrono::Local>,
+        text: &str,
+    ) -> Result<chrono::DateTime<chrono::Local>, &'static str> {
+        let mut text = text.trim();
+        let mut sign = 1;
+        if text.starts_with("-") {
+            text = &text[1..];
+            sign = -1;
+        }
+
+        if text.ends_with("h") || text.ends_with("m") || text.ends_with("s") {
+            let mut time = text[0..text.len() - 1]
+                .parse::<i64>()
+                .map_err(|_e| ())
+                .and_then(|v| if v >= 0 && v < 60 { Ok(v) } else { Err(()) })
+                .map_err(|_e| "failed to parse provided text")?;
+            let power = match text.chars().last().unwrap() {
+                's' => 0,
+                'm' => 1,
+                'h' => 2,
+                _ => panic!("not other option possible in this conditional"),
+            };
+            time = sign * time * i64::pow(60, power) * 1000;
+            let date = chrono::DateTime::from_timestamp_millis(date.timestamp_millis() + time)
+                .unwrap()
+                .into();
+            return Ok(date);
+        }
+
+        const SEPARATOR: &str = ":";
+        let separator_count = text.matches(SEPARATOR).collect::<Vec<&str>>().len();
+        if text.len() <= "23:59".len()
+            && separator_count == 1
+            && !text.starts_with(SEPARATOR)
+            && !text.ends_with(SEPARATOR)
+        {
+            let colon_index = text
+                .find(SEPARATOR)
+                .expect("should contain exactly one colon");
+            let hour = text[0..colon_index]
+                .parse::<u32>()
+                .map_err(|_e| ())
+                .and_then(|v| if v < 24 { Ok(v) } else { Err(()) })
+                .map_err(|_e| "failed to parse hour")?;
+            let minute = text[colon_index + 1..text.len()]
+                .parse::<u32>()
+                .map_err(|_e| ())
+                .and_then(|v| if v < 60 { Ok(v) } else { Err(()) })
+                .map_err(|_e| "failed to parse minute")?;
+
+            let date_parsed = date.with_hour(hour).unwrap().with_minute(minute).unwrap();
+            let difference = date_parsed.timestamp_millis() - date.timestamp_millis();
+            let is_same_day = if difference == 0 {
+                sign > 0
+            } else {
+                sign * difference > 0
+            };
+            if is_same_day {
+                return Ok(date_parsed);
+            } else {
+                let out = chrono::DateTime::from_timestamp_millis(
+                    date_parsed.timestamp_millis() + sign * 24 * 60 * 60 * 1000,
+                )
+                .unwrap()
+                .into();
+                return Ok(out);
+            }
+        }
+
+        Err("failed to parse provided text")
+    }
 }
 
 fn resolve_path(path: &str) -> Result<PathBuf, &'static str> {
@@ -1704,5 +1777,127 @@ mod tests {
         let text = "9554h 2m 2s";
         let time = DateTime::get_time(&start, &end);
         assert_eq!(DateTime::get_time_hr_from_milli(time), text);
+    }
+
+    #[test]
+    fn date_time_modify_date_time_by_relative_input() -> Result<(), &'static str> {
+        assert_eq!(
+            DateTime::modify_date_time_by_relative_input(&DateTime::now().date, "2s")?,
+            now_plus_secs(2)
+        );
+        assert_eq!(
+            DateTime::modify_date_time_by_relative_input(&DateTime::now().date, "2m")?,
+            now_plus_secs(2 * 60)
+        );
+        assert_eq!(
+            DateTime::modify_date_time_by_relative_input(&DateTime::now().date, "2h")?,
+            now_plus_secs(2 * 60 * 60)
+        );
+        assert_eq!(
+            DateTime::modify_date_time_by_relative_input(&DateTime::now().date, "-2s")?,
+            now_plus_secs(-2)
+        );
+        assert_eq!(
+            DateTime::modify_date_time_by_relative_input(&DateTime::now().date, "-2m")?,
+            now_plus_secs(-2 * 60)
+        );
+        assert_eq!(
+            DateTime::modify_date_time_by_relative_input(&DateTime::now().date, "-2h")?,
+            now_plus_secs(-2 * 60 * 60)
+        );
+
+        let default = DateTime::now()
+            .date
+            .with_hour(12)
+            .unwrap()
+            .with_minute(0)
+            .unwrap()
+            .with_second(0)
+            .unwrap();
+        // FIX: Won't work when months change. Fix everywhere.
+        let date = default.with_day(default.day() - 1).unwrap();
+        assert_eq!(
+            DateTime::modify_date_time_by_relative_input(&default, "-12:00")?,
+            date
+        );
+        let date = default;
+        assert_eq!(
+            DateTime::modify_date_time_by_relative_input(&default, "12:00")?,
+            date
+        );
+        // Sets the time and keeps the day because the time already happened today.
+        let date = default.with_hour(9).unwrap().with_minute(2).unwrap();
+        assert_eq!(
+            DateTime::modify_date_time_by_relative_input(&default, "-9:02")?,
+            date
+        );
+        assert_eq!(
+            DateTime::modify_date_time_by_relative_input(&default, "-09:2")?,
+            date
+        );
+        let date = default.with_hour(13).unwrap().with_minute(15).unwrap();
+        assert_eq!(
+            DateTime::modify_date_time_by_relative_input(&default, "13:15")?,
+            date
+        );
+        // Sets the time and day because the time hasn't happened today yet.
+        let date = default
+            .with_day(default.day() + 1)
+            .unwrap()
+            .with_hour(9)
+            .unwrap()
+            .with_minute(2)
+            .unwrap();
+        assert_eq!(
+            DateTime::modify_date_time_by_relative_input(&default, "9:02")?,
+            date
+        );
+        let date = default
+            .with_day(default.day() - 1)
+            .unwrap()
+            .with_hour(13)
+            .unwrap()
+            .with_minute(15)
+            .unwrap();
+        assert_eq!(
+            DateTime::modify_date_time_by_relative_input(&default, "-13:15")?,
+            date
+        );
+
+        assert!(DateTime::modify_date_time_by_relative_input(&DateTime::now().date, "").is_err());
+        // TODO: make this set 1 minute?
+        assert!(DateTime::modify_date_time_by_relative_input(&DateTime::now().date, "1").is_err());
+        assert!(DateTime::modify_date_time_by_relative_input(&DateTime::now().date, "-").is_err());
+        assert!(DateTime::modify_date_time_by_relative_input(&DateTime::now().date, "-1").is_err());
+        assert!(
+            DateTime::modify_date_time_by_relative_input(&DateTime::now().date, "60s").is_err()
+        );
+        assert!(
+            DateTime::modify_date_time_by_relative_input(&DateTime::now().date, "60m").is_err()
+        );
+        assert!(
+            DateTime::modify_date_time_by_relative_input(&DateTime::now().date, "60h").is_err()
+        );
+        assert!(
+            DateTime::modify_date_time_by_relative_input(&DateTime::now().date, "-60s").is_err()
+        );
+        assert!(
+            DateTime::modify_date_time_by_relative_input(&DateTime::now().date, "-60m").is_err()
+        );
+        assert!(
+            DateTime::modify_date_time_by_relative_input(&DateTime::now().date, "-60h").is_err()
+        );
+        assert!(
+            DateTime::modify_date_time_by_relative_input(&DateTime::now().date, "12:05:37")
+                .is_err()
+        );
+        assert!(
+            DateTime::modify_date_time_by_relative_input(&DateTime::now().date, "24:05").is_err()
+        );
+        assert!(
+            DateTime::modify_date_time_by_relative_input(&DateTime::now().date, "23:60").is_err()
+        );
+
+        Ok(())
     }
 }
