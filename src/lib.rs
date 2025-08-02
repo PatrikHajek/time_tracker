@@ -79,7 +79,9 @@ impl Config {
         }
         let sessions_path = resolve_path(&sessions_path)?;
         let config = Config {
-            action: Action::Start,
+            action: Action::Start {
+                date: DateTime::now(),
+            },
             sessions_path,
         };
         Ok(config)
@@ -88,15 +90,15 @@ impl Config {
 
 #[derive(PartialEq, Debug)]
 enum Action {
-    Start,
-    Stop,
-    Mark,
+    Start { date: DateTime },
+    Stop { date: DateTime },
+    Mark { date: DateTime },
+    Remark { date: DateTime },
     Path,
     View,
     Label { label: Label },
     Unlabel { label: Label },
     Write { text: String },
-    Remark,
     Version,
     // Set,
 }
@@ -104,24 +106,42 @@ enum Action {
 impl Action {
     fn build(name: &str, args: &[String]) -> Result<Action, String> {
         let out = match name {
-            "start" => {
-                if args.len() != 0 {
-                    return Err("too many arguments")?;
-                }
-                Action::Start
-            }
-            "stop" => {
-                if args.len() != 0 {
-                    return Err("too many arguments")?;
-                }
-                Action::Stop
-            }
-            "mark" => {
-                if args.len() != 0 {
-                    return Err("too many arguments")?;
-                }
-                Action::Mark
-            }
+            "start" => match args.len() {
+                0 => Action::Start {
+                    date: DateTime::now(),
+                },
+                1 => Action::Start {
+                    date: DateTime::now().modify_by_relative_input(&args[0])?,
+                },
+                _ => return Err("too many arguments")?,
+            },
+            "stop" => match args.len() {
+                0 => Action::Stop {
+                    date: DateTime::now(),
+                },
+                1 => Action::Stop {
+                    date: DateTime::now().modify_by_relative_input(&args[0])?,
+                },
+                _ => return Err("too many arguments")?,
+            },
+            "mark" => match args.len() {
+                0 => Action::Mark {
+                    date: DateTime::now(),
+                },
+                1 => Action::Mark {
+                    date: DateTime::now().modify_by_relative_input(&args[0])?,
+                },
+                _ => return Err("too many arguments")?,
+            },
+            "remark" => match args.len() {
+                0 => Action::Remark {
+                    date: DateTime::now(),
+                },
+                1 => Action::Remark {
+                    date: DateTime::now().modify_by_relative_input(&args[0])?,
+                },
+                _ => return Err("too many arguments")?,
+            },
             "path" => {
                 if args.len() != 0 {
                     return Err("too many arguments")?;
@@ -155,12 +175,6 @@ impl Action {
                 Action::Write {
                     text: args[0].to_owned(),
                 }
-            }
-            "remark" => {
-                if args.len() != 0 {
-                    return Err("too many arguments")?;
-                }
-                Action::Remark
             }
             "version" => {
                 if args.len() != 0 {
@@ -289,8 +303,7 @@ struct Session {
 }
 
 impl Session {
-    fn new(config: &Config) -> Session {
-        let dt = DateTime::now();
+    fn new(config: &Config, dt: &DateTime) -> Session {
         let mark = Mark::new(&dt.date);
         Session {
             path: Path::join(&config.sessions_path, format!("{}.md", dt.to_formatted())),
@@ -348,25 +361,31 @@ impl Session {
         acc
     }
 
-    fn stop(&mut self) -> Result<(), &'static str> {
+    fn stop(&mut self, dt: &DateTime) -> Result<(), &'static str> {
         if !self.is_active() {
             return Err("session already ended");
         }
-        let dt = DateTime::now();
         let mut mark = Mark::new(&dt.date);
         mark.add_label(&Label::End);
         self.marks.push(mark);
         Ok(())
     }
 
-    fn mark(&mut self) -> Result<(), &'static str> {
+    fn mark(&mut self, dt: &DateTime) -> Result<(), &'static str> {
         if !self.is_active() {
             return Err("can't mark, session has already ended");
         }
-        let dt = DateTime::now();
         let mark = Mark::new(&dt.date);
         self.marks.push(mark);
         Ok(())
+    }
+
+    fn remark(&mut self, dt: &DateTime) {
+        let mark = self
+            .marks
+            .last_mut()
+            .expect("session must always have at least one mark");
+        mark.date = dt.date;
     }
 
     fn label(&mut self, label: &Label) -> bool {
@@ -394,14 +413,6 @@ impl Session {
         }
         mark.write(&text);
         Ok(())
-    }
-
-    fn remark(&mut self) {
-        let mark = self
-            .marks
-            .last_mut()
-            .expect("session must always have at least one mark");
-        mark.date = DateTime::now().date;
     }
 
     fn save(&self) -> Result<(), Box<dyn Error>> {
@@ -619,15 +630,15 @@ impl Label {
 // TODO: put all these functions inside Action?
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     let result = match config.action {
-        Action::Start => start(&config),
-        Action::Stop => stop(&config),
-        Action::Mark => mark(&config),
+        Action::Start { .. } => start(&config),
+        Action::Stop { .. } => stop(&config),
+        Action::Mark { .. } => mark(&config),
+        Action::Remark { .. } => remark(&config),
         Action::Path => path(&config),
         Action::View => view(&config),
         Action::Label { .. } => label(&config),
         Action::Unlabel { .. } => unlabel(&config),
         Action::Write { .. } => write(&config),
-        Action::Remark => remark(&config),
         Action::Version => Ok(version()),
     };
     Ok(result?)
@@ -639,8 +650,11 @@ fn start(config: &Config) -> Result<(), Box<dyn Error>> {
             return Err("another session is already active")?;
         }
     }
+    let Action::Start { date } = &config.action else {
+        panic!("wrong action, expected Action::Start");
+    };
 
-    let session = Session::new(&config);
+    let session = Session::new(&config, &date);
     let SessionFile { path, contents } = session.to_file()?;
     if fs::exists(&path)? {
         return Err("this session file is already created")?;
@@ -654,7 +668,11 @@ fn stop(config: &Config) -> Result<(), Box<dyn Error>> {
     let Some(mut session) = Session::get_last(&config)? else {
         return Err("no active session found")?;
     };
-    session.stop()?;
+    let Action::Stop { date } = &config.action else {
+        panic!("wrong action, expected Action::Stop");
+    };
+
+    session.stop(&date)?;
     session.save()?;
     let mark = session.marks.last().expect("Last mark was just added");
     println!("Stopped: {}", DateTime::format(&mark.date));
@@ -665,10 +683,28 @@ fn mark(config: &Config) -> Result<(), Box<dyn Error>> {
     let Some(mut session) = Session::get_last(&config)? else {
         return Err("no active session found")?;
     };
-    session.mark()?;
+    let Action::Mark { date } = &config.action else {
+        panic!("wrong action, expected Action::Mark");
+    };
+
+    session.mark(&date)?;
     session.save()?;
     let mark = session.marks.last().expect("Last mark was just added");
     println!("Marked: {}", DateTime::format(&mark.date));
+    Ok(())
+}
+
+fn remark(config: &Config) -> Result<(), Box<dyn Error>> {
+    let Some(mut session) = Session::get_last(&config)? else {
+        return Err("no active session found")?;
+    };
+    let Action::Remark { date } = &config.action else {
+        panic!("wrong action, expected Action::Remark");
+    };
+
+    session.remark(&date);
+    session.save()?;
+    println!("Updated current mark's date to current date");
     Ok(())
 }
 
@@ -750,21 +786,12 @@ fn write(config: &Config) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn remark(config: &Config) -> Result<(), Box<dyn Error>> {
-    let Some(mut session) = Session::get_last(&config)? else {
-        return Err("no active session found")?;
-    };
-    session.remark();
-    session.save()?;
-    println!("Updated current mark's date to current date");
-    Ok(())
-}
-
 fn version() {
     let version = env!("CARGO_PKG_VERSION");
     println!("v{version}");
 }
 
+#[derive(PartialEq, Debug)]
 struct DateTime {
     date: chrono::DateTime<chrono::Local>,
 }
@@ -954,7 +981,9 @@ mod tests {
     fn config_from_args_works() {
         let args = &[String::from("time_tracker"), String::from("start")];
         let config = Config {
-            action: Action::Start,
+            action: Action::Start {
+                date: DateTime::now(),
+            },
             sessions_path: PathBuf::from(""),
         };
         assert_eq!(Config::from_args(args).unwrap(), config);
@@ -965,7 +994,9 @@ mod tests {
         let path = "./notes/sessions";
         let contents = format!("{CONFIG_SESSIONS_PATH}='{path}'");
         let config = Config {
-            action: Action::Start,
+            action: Action::Start {
+                date: DateTime::now(),
+            },
             sessions_path: PathBuf::from(&path),
         };
         assert_eq!(Config::from_file(&contents).unwrap(), config);
@@ -980,14 +1011,65 @@ mod tests {
 
     #[test]
     fn action_build_works() -> Result<(), Box<dyn Error>> {
-        assert_eq!(Action::build("start", &[])?, Action::Start);
+        assert_eq!(
+            Action::build("start", &[])?,
+            Action::Start {
+                date: DateTime::now()
+            }
+        );
+        assert_eq!(
+            Action::build("start", &[String::from("0m")])?,
+            Action::Start {
+                date: DateTime::now()
+            }
+        );
+        assert!(Action::build("start", &[String::from("0m"), String::from("hello")]).is_err());
         assert!(Action::build("start", &[String::from("hello")]).is_err());
 
-        assert_eq!(Action::build("stop", &[])?, Action::Stop);
+        assert_eq!(
+            Action::build("stop", &[])?,
+            Action::Stop {
+                date: DateTime::now()
+            }
+        );
+        assert_eq!(
+            Action::build("stop", &[String::from("0m")])?,
+            Action::Stop {
+                date: DateTime::now()
+            }
+        );
+        assert!(Action::build("stop", &[String::from("0m"), String::from("hello")]).is_err());
         assert!(Action::build("stop", &[String::from("hello")]).is_err());
 
-        assert_eq!(Action::build("mark", &[])?, Action::Mark);
+        assert_eq!(
+            Action::build("mark", &[])?,
+            Action::Mark {
+                date: DateTime::now()
+            }
+        );
+        assert_eq!(
+            Action::build("mark", &[String::from("0m")])?,
+            Action::Mark {
+                date: DateTime::now()
+            }
+        );
+        assert!(Action::build("mark", &[String::from("0m"), String::from("hello")]).is_err());
         assert!(Action::build("mark", &[String::from("hello")]).is_err());
+
+        assert_eq!(
+            Action::build("remark", &[])?,
+            Action::Remark {
+                date: DateTime::now()
+            }
+        );
+        assert_eq!(
+            Action::build("remark", &[String::from("0m")])?,
+            Action::Remark {
+                date: DateTime::now()
+            }
+        );
+        assert!(Action::build("remark", &[String::from("0m"), String::from("hello")]).is_err());
+        assert!(Action::build("remark", &[String::from("hello")]).is_err());
 
         assert_eq!(Action::build("path", &[])?, Action::Path);
         assert!(Action::build("path", &[String::from("hello")]).is_err());
@@ -1020,8 +1102,6 @@ mod tests {
             }
         );
 
-        assert_eq!(Action::build("remark", &[])?, Action::Remark);
-        assert!(Action::build("remark", &[String::from("hello")]).is_err());
 
         assert!(Action::build("hello", &[]).is_err());
 
@@ -1087,7 +1167,7 @@ mod tests {
         );
 
         session_third.marks.pop();
-        session_third.stop().unwrap();
+        session_third.stop(&DateTime::now()).unwrap();
         let mark = &mut session_third.marks[1];
         mark.date = mark_end.date;
         let aggregator = Aggregator {
@@ -1146,7 +1226,9 @@ mod tests {
     #[test]
     fn session_new_works() {
         let config = Config {
-            action: Action::Start,
+            action: Action::Start {
+                date: DateTime::now(),
+            },
             sessions_path: PathBuf::from("."),
         };
         let dt = DateTime::now();
@@ -1157,16 +1239,18 @@ mod tests {
                 .join(format!("{}.md", dt.to_formatted())),
             marks: vec![mark],
         };
-        assert_eq!(Session::new(&config), session);
+        assert_eq!(Session::new(&config, &DateTime::now()), session);
     }
 
     #[test]
     fn session_start_works() {
         let config = Config {
-            action: Action::Start,
+            action: Action::Start {
+                date: DateTime::now(),
+            },
             sessions_path: PathBuf::from("sessions"),
         };
-        let mut session = Session::new(&config);
+        let mut session = Session::new(&config, &DateTime::now());
         let date = now_plus_secs(30);
         session.marks.push(Mark::new(&date));
         assert_eq!(session.start(), session.marks.first().unwrap().date);
@@ -1175,12 +1259,14 @@ mod tests {
     #[test]
     fn session_end_works() {
         let config = Config {
-            action: Action::Start,
+            action: Action::Start {
+                date: DateTime::now(),
+            },
             sessions_path: PathBuf::from("sessions"),
         };
-        let mut session = Session::new(&config);
+        let mut session = Session::new(&config, &DateTime::now());
         assert_eq!(session.end(), session.marks.last().unwrap().date);
-        session.stop().unwrap();
+        session.stop(&DateTime::now()).unwrap();
         session.marks.last_mut().unwrap().date = now_plus_secs(30);
         assert_eq!(session.end(), session.marks.last().unwrap().date);
     }
@@ -1188,13 +1274,15 @@ mod tests {
     #[test]
     fn session_is_active_works() {
         let config = Config {
-            action: Action::Start,
+            action: Action::Start {
+                date: DateTime::now(),
+            },
             sessions_path: PathBuf::from("sessions"),
         };
-        let mut session = Session::new(&config);
+        let mut session = Session::new(&config, &DateTime::now());
         assert!(session.is_active());
         assert!(!session.marks.last().unwrap().has_label(&Label::End));
-        session.stop().unwrap();
+        session.stop(&DateTime::now()).unwrap();
         assert!(!session.is_active());
         assert!(session.marks.last().unwrap().has_label(&Label::End));
     }
@@ -1228,12 +1316,14 @@ mod tests {
     #[test]
     fn session_stop_works() {
         let config = Config {
-            action: Action::Stop,
+            action: Action::Stop {
+                date: DateTime::now(),
+            },
             sessions_path: PathBuf::from("sessions"),
         };
-        let mut session = Session::new(&config);
+        let mut session = Session::new(&config, &DateTime::now());
         let mut clone = session.clone();
-        session.stop().unwrap();
+        session.stop(&DateTime::now()).unwrap();
         let dt = DateTime::now();
         let mut mark = Mark::new(&dt.date);
         mark.add_label(&Label::End);
@@ -1244,13 +1334,15 @@ mod tests {
     #[test]
     fn cannot_stop_when_session_ended() {
         let config = Config {
-            action: Action::Stop,
+            action: Action::Stop {
+                date: DateTime::now(),
+            },
             sessions_path: PathBuf::from("sessions"),
         };
-        let mut session = Session::new(&config);
-        session.stop().unwrap();
+        let mut session = Session::new(&config, &DateTime::now());
+        session.stop(&DateTime::now()).unwrap();
         let clone = session.clone();
-        assert!(session.stop().is_err());
+        assert!(session.stop(&DateTime::now()).is_err());
         assert_eq!(session, clone);
     }
 
@@ -1258,12 +1350,14 @@ mod tests {
     fn session_mark_works() {
         let dt = DateTime::now();
         let config = Config {
-            action: Action::Start,
+            action: Action::Start {
+                date: DateTime::now(),
+            },
             sessions_path: PathBuf::from("sessions"),
         };
-        let mut session = Session::new(&config);
+        let mut session = Session::new(&config, &DateTime::now());
         let mark = Mark::new(&dt.date);
-        session.mark().unwrap();
+        session.mark(&DateTime::now()).unwrap();
         assert_eq!(session.marks.len(), 2);
         assert_eq!(session.marks[1], mark);
     }
@@ -1278,7 +1372,7 @@ mod tests {
             marks: vec![mark_first, mark_second],
         };
         let mut clone = session.clone();
-        session.mark().unwrap();
+        session.mark(&DateTime::now()).unwrap();
         assert_eq!(session.marks.len(), 3);
         clone.marks.push(session.marks[2].clone());
         assert_eq!(session, clone);
@@ -1287,13 +1381,32 @@ mod tests {
     #[test]
     fn cannot_mark_when_session_ended() {
         let config = Config {
-            action: Action::Mark,
+            action: Action::Mark {
+                date: DateTime::now(),
+            },
             sessions_path: PathBuf::from("sessions"),
         };
-        let mut session = Session::new(&config);
-        session.stop().unwrap();
+        let mut session = Session::new(&config, &DateTime::now());
+        session.stop(&DateTime::now()).unwrap();
         let clone = session.clone();
-        assert!(session.mark().is_err());
+        assert!(session.mark(&DateTime::now()).is_err());
+        assert_eq!(session, clone);
+    }
+
+    #[test]
+    fn session_remark_works() {
+        let config = Config {
+            action: Action::Start {
+                date: DateTime::now(),
+            },
+            sessions_path: PathBuf::from("sessions"),
+        };
+        let mut session = Session::new(&config, &DateTime::now());
+        session.mark(&DateTime::now()).unwrap();
+        let clone = session.clone();
+        session.marks.last_mut().unwrap().date = now_plus_secs(30);
+        assert_ne!(session, clone);
+        session.remark(&DateTime::now());
         assert_eq!(session, clone);
     }
 
@@ -1303,9 +1416,9 @@ mod tests {
             action: Action::Label { label: Label::Skip },
             sessions_path: PathBuf::from("sessions"),
         };
-        let mut session = Session::new(&config);
+        let mut session = Session::new(&config, &DateTime::now());
         // To have at least 2 marks.
-        session.mark().unwrap();
+        session.mark(&DateTime::now()).unwrap();
         let mut clone = session.clone();
         session.label(&Label::Skip);
         clone.marks.last_mut().unwrap().add_label(&Label::Skip);
@@ -1318,9 +1431,9 @@ mod tests {
             action: Action::Label { label: Label::Skip },
             sessions_path: PathBuf::from("sessions"),
         };
-        let mut session = Session::new(&config);
+        let mut session = Session::new(&config, &DateTime::now());
         // To have at least 2 marks.
-        session.mark().unwrap();
+        session.mark(&DateTime::now()).unwrap();
         let clone = session.clone();
         session.label(&Label::Skip);
         session.unlabel(&Label::Skip);
@@ -1335,9 +1448,9 @@ mod tests {
             },
             sessions_path: PathBuf::from("sessions"),
         };
-        let mut session = Session::new(&config);
+        let mut session = Session::new(&config, &DateTime::now());
         // To have at least 2 marks.
-        session.mark().unwrap();
+        session.mark(&DateTime::now()).unwrap();
         let mut clone = session.clone();
         session.write("hello").unwrap();
         clone.marks.iter_mut().last().unwrap().write("hello");
@@ -1347,27 +1460,14 @@ mod tests {
     #[test]
     fn session_write_errors_when_there_is_content() {
         let config = Config {
-            action: Action::Start,
+            action: Action::Start {
+                date: DateTime::now(),
+            },
             sessions_path: PathBuf::from("sessions"),
         };
-        let mut session = Session::new(&config);
+        let mut session = Session::new(&config, &DateTime::now());
         session.write("Some content.").unwrap();
         assert!(session.write("Some other content.").is_err());
-    }
-
-    #[test]
-    fn session_remark_works() {
-        let config = Config {
-            action: Action::Start,
-            sessions_path: PathBuf::from("sessions"),
-        };
-        let mut session = Session::new(&config);
-        session.mark().unwrap();
-        let clone = session.clone();
-        session.marks.last_mut().unwrap().date = now_plus_secs(30);
-        assert_ne!(session, clone);
-        session.remark();
-        assert_eq!(session, clone);
     }
 
     #[test]
@@ -1440,7 +1540,9 @@ mod tests {
             contents: String::from("I am the second mark!\nHi!\n"),
         };
         let config = Config {
-            action: Action::Mark,
+            action: Action::Mark {
+                date: DateTime::now(),
+            },
             sessions_path: PathBuf::from("sessions"),
         };
         let session = Session {
@@ -1487,7 +1589,9 @@ mod tests {
             contents: String::from("feat/new-feature"),
         };
         let config = Config {
-            action: Action::Mark,
+            action: Action::Mark {
+                date: DateTime::now(),
+            },
             sessions_path: PathBuf::from("sessions"),
         };
         let session = Session {
