@@ -293,7 +293,7 @@ impl Session {
         let dt = DateTime::now();
         let mark = Mark::new(&dt.date);
         Session {
-            path: Path::join(&config.sessions_path, format!("{}.md", dt.formatted)),
+            path: Path::join(&config.sessions_path, format!("{}.md", dt.to_formatted())),
             marks: vec![mark],
         }
     }
@@ -767,8 +767,6 @@ fn version() {
 
 struct DateTime {
     date: chrono::DateTime<chrono::Local>,
-    // TODO: make this a method instead?
-    formatted: String,
 }
 
 impl DateTime {
@@ -778,14 +776,15 @@ impl DateTime {
             chrono::NaiveDateTime::new(now.date_naive(), now.time().with_nanosecond(0).unwrap())
                 .and_local_timezone(now.timezone())
                 .unwrap();
-        DateTime {
-            date,
-            formatted: DateTime::format(&date),
-        }
+        DateTime { date }
     }
 
     fn format(date: &chrono::DateTime<chrono::Local>) -> String {
         date.format("%FT%T%:z").to_string()
+    }
+
+    fn to_formatted(&self) -> String {
+        DateTime::format(&self.date)
     }
 
     // TEST: that it works when the months change in the middle of the week.
@@ -1112,7 +1111,7 @@ mod tests {
     #[test]
     fn session_file_build_works() {
         let path = PathBuf::new();
-        let contents = get_template(&DateTime::now().formatted);
+        let contents = get_template(&DateTime::now().to_formatted());
         let file = SessionFile::build(&path, &contents).unwrap();
         assert_eq!(&file.contents, &contents);
     }
@@ -1120,7 +1119,7 @@ mod tests {
     #[test]
     fn session_file_get_heading_with_contents_works() {
         let dt = &DateTime::now();
-        let contents = get_template(&dt.formatted);
+        let contents = get_template(&dt.to_formatted());
         let heading_contents = SessionFile::get_heading_with_contents(MARKS_HEADING, &contents);
         assert_eq!(
             heading_contents,
@@ -1130,7 +1129,7 @@ mod tests {
                 \n\
                 {MARK_HEADING_PREFIX}{}\
                 ",
-                dt.formatted
+                dt.to_formatted()
             )
         );
     }
@@ -1151,7 +1150,9 @@ mod tests {
         let dt = DateTime::now();
         let mark = Mark::new(&dt.date);
         let session = Session {
-            path: config.sessions_path.join(format!("{}.md", dt.formatted)),
+            path: config
+                .sessions_path
+                .join(format!("{}.md", dt.to_formatted())),
             marks: vec![mark],
         };
         assert_eq!(Session::new(&config), session);
@@ -1271,7 +1272,7 @@ mod tests {
         let mark_first = Mark::new(&dt.date.with_hour(14).unwrap());
         let mark_second = Mark::new(&mark_first.date.with_minute(47).unwrap());
         let mut session = Session {
-            path: PathBuf::from(format!("./sessions/{}.md", dt.formatted)),
+            path: PathBuf::from(format!("./sessions/{}.md", dt.to_formatted())),
             marks: vec![mark_first, mark_second],
         };
         let mut clone = session.clone();
@@ -1372,7 +1373,6 @@ mod tests {
         let DateTime { date, .. } = DateTime::now();
         let mark_first_dt = DateTime {
             date: date.with_hour(5).unwrap(),
-            formatted: DateTime::format(&date.with_hour(5).unwrap()),
             // FIX: same time for both marks breaks reading of them - doesn't read labels and keeps
             // the whole content as is in the file
             // date: date.with_hour(5).unwrap().with_minute(23).unwrap(),
@@ -1381,7 +1381,6 @@ mod tests {
         let mark_first = Mark::new(&mark_first_dt.date);
         let mark_second_dt = DateTime {
             date: mark_first.date.with_minute(23).unwrap(),
-            formatted: DateTime::format(&mark_first.date.with_minute(23).unwrap()),
         };
         let mut mark_second = Mark::new(&mark_second_dt.date);
         mark_second.add_label(&Label::End);
@@ -1398,7 +1397,8 @@ mod tests {
                 \n\
                 {LABEL_END}\n\
                 ",
-            mark_first_dt.formatted, mark_second_dt.formatted,
+            mark_first_dt.to_formatted(),
+            mark_second_dt.to_formatted(),
         );
         let file = SessionFile::build(&PathBuf::new(), &contents).unwrap();
         let session = Session {
@@ -1427,12 +1427,10 @@ mod tests {
         let dt = DateTime::now();
         let mark_first_dt = DateTime {
             date: dt.date.with_hour(5).unwrap(),
-            formatted: DateTime::format(&dt.date.with_hour(5).unwrap()),
         };
         let mark_first = Mark::new(&mark_first_dt.date);
         let mark_second_dt = DateTime {
             date: mark_first_dt.date.with_minute(44).unwrap(),
-            formatted: DateTime::format(&mark_first_dt.date.with_minute(44).unwrap()),
         };
         let mark_second = Mark {
             date: mark_second_dt.date,
@@ -1446,7 +1444,7 @@ mod tests {
         let session = Session {
             path: config
                 .sessions_path
-                .join(format!("{}.md", mark_first_dt.formatted)),
+                .join(format!("{}.md", mark_first_dt.to_formatted())),
             marks: vec![mark_first, mark_second],
         };
         let file = SessionFile::build(
@@ -1464,7 +1462,8 @@ mod tests {
                     I am the second mark!\n\
                     Hi!\n\
                     ",
-                mark_first_dt.formatted, mark_second_dt.formatted
+                mark_first_dt.to_formatted(),
+                mark_second_dt.to_formatted()
             ),
         )?;
 
@@ -1593,7 +1592,7 @@ mod tests {
                 \n\
                 This is some content.\n\
                 ",
-            dt.formatted
+            dt.to_formatted()
         );
         let mark = Mark {
             date: dt.date,
@@ -1620,7 +1619,7 @@ mod tests {
                 This is a content of a mark.\n\
                 How are you?\
                 ",
-            dt.formatted
+            dt.to_formatted()
         );
         assert_eq!(mark.to_string(), output);
     }
@@ -1702,7 +1701,9 @@ mod tests {
 
     #[test]
     fn date_time_now_works() {
-        let DateTime { date, formatted } = DateTime::now();
+        let dt = DateTime::now();
+        let date = dt.date;
+        let formatted = dt.to_formatted();
         let now = chrono::Local::now();
 
         assert_eq!(date.year(), now.year());
