@@ -923,13 +923,28 @@ impl DateTime {
             }
         }
 
-        text.parse::<i64>()
+        text.parse::<u32>()
             .map_err(|_e| ())
-            .and_then(|v| if v >= 0 && v < 60 { Ok(v) } else { Err(()) })
-            .map(|v| self.date.timestamp_millis() + sign * v * 60 * 1000)
-            .map(|v| DateTime {
-                date: chrono::DateTime::from_timestamp_millis(v).unwrap().into(),
+            .and_then(|v| if v < 60 { Ok(v) } else { Err(()) })
+            .map(|v| {
+                let date_parsed = self.date.with_minute(v).unwrap();
+                let difference = date_parsed.timestamp_millis() - self.date.timestamp_millis();
+                let is_same_hour = if difference == 0 {
+                    sign > 0
+                } else {
+                    sign * difference > 0
+                };
+                if is_same_hour {
+                    return date_parsed;
+                } else {
+                    return chrono::DateTime::from_timestamp_millis(
+                        date_parsed.timestamp_millis() + sign * 60 * 60 * 1000,
+                    )
+                    .unwrap()
+                    .into();
+                }
             })
+            .map(|v| DateTime { date: v })
             .map_err(|_e| "failed to parse provided text")
     }
 }
@@ -1898,15 +1913,6 @@ mod tests {
     #[test]
     fn date_time_modify_by_relative_input() -> Result<(), &'static str> {
         assert_eq!(
-            DateTime::now().modify_by_relative_input("1")?.date,
-            now_plus_secs(60)
-        );
-        assert_eq!(
-            DateTime::now().modify_by_relative_input("-1")?.date,
-            now_plus_secs(-60)
-        );
-
-        assert_eq!(
             DateTime::now().modify_by_relative_input("2s")?.date,
             now_plus_secs(2)
         );
@@ -1939,7 +1945,58 @@ mod tests {
             .unwrap()
             .with_second(0)
             .unwrap();
-        // FIX: Won't work when months change. Fix everywhere.
+        assert_eq!(
+            DateTime {
+                date: default.clone()
+            }
+            .modify_by_relative_input("10")?
+            .date,
+            default.with_minute(10).unwrap()
+        );
+        assert_eq!(
+            DateTime {
+                date: default.clone()
+            }
+            .modify_by_relative_input("-10")?
+            .date,
+            default.with_hour(11).unwrap().with_minute(10).unwrap()
+        );
+        assert_eq!(
+            DateTime {
+                date: default.with_minute(30).unwrap()
+            }
+            .modify_by_relative_input("10")?
+            .date,
+            default.with_hour(13).unwrap().with_minute(10).unwrap()
+        );
+        assert_eq!(
+            DateTime {
+                date: default.with_minute(30).unwrap()
+            }
+            .modify_by_relative_input("-10")?
+            .date,
+            default.with_minute(10).unwrap()
+        );
+        assert_eq!(
+            DateTime {
+                date: default.with_minute(10).unwrap()
+            }
+            .modify_by_relative_input("10")?
+            .date,
+            default.with_minute(10).unwrap()
+        );
+        assert_eq!(
+            DateTime {
+                date: default.with_minute(10).unwrap()
+            }
+            .modify_by_relative_input("-10")?
+            .date,
+            default.with_hour(11).unwrap().with_minute(10).unwrap()
+        );
+        // FIX: Won't work when months change. Fix everywhere. Create global date with which all
+        // tests work.
+        // TODO: Create utils for creating/working with dates. Function that takes hour, minute and
+        // second as parameters and creates the date or even DateTime.
         let date = default.with_day(default.day() - 1).unwrap();
         assert_eq!(
             DateTime {
