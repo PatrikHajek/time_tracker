@@ -1894,7 +1894,7 @@ mod tests {
     }
 
     #[test]
-    fn date_time_modify_date_time_by_relative_input() -> Result<(), &'static str> {
+    fn date_time_modify_by_relative_input() -> Result<(), &'static str> {
         assert_eq!(
             DateTime::now().modify_by_relative_input("1")?.date,
             now_plus_secs(60)
