@@ -791,11 +791,15 @@ fn version() {
     println!("v{version}");
 }
 
+// TODO: Use this in place of almost all chrono::DateTime.
 #[derive(PartialEq, Debug)]
 struct DateTime {
     date: chrono::DateTime<chrono::Local>,
 }
 
+// TODO: Implement From<chrono::DateTime> trait.
+// TODO: Implement trait for comparison between DateTime and chrono::DateTime?
+// TODO: Go through and make all functions that should be methods methods.
 impl DateTime {
     fn now() -> DateTime {
         let now = chrono::Local::now();
@@ -851,6 +855,7 @@ impl DateTime {
         format!("{hours}h {minutes}m {seconds}s")
     }
 
+    // TODO: Refactor.
     fn modify_by_relative_input(&self, text: &str) -> Result<Self, &'static str> {
         let mut text = text.trim();
         let mut sign = 1;
