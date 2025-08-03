@@ -923,7 +923,14 @@ impl DateTime {
             }
         }
 
-        Err("failed to parse provided text")
+        text.parse::<i64>()
+            .map_err(|_e| ())
+            .and_then(|v| if v >= 0 && v < 60 { Ok(v) } else { Err(()) })
+            .map(|v| self.date.timestamp_millis() + sign * v * 60 * 1000)
+            .map(|v| DateTime {
+                date: chrono::DateTime::from_timestamp_millis(v).unwrap().into(),
+            })
+            .map_err(|_e| "failed to parse provided text")
     }
 }
 
@@ -1889,6 +1896,15 @@ mod tests {
     #[test]
     fn date_time_modify_date_time_by_relative_input() -> Result<(), &'static str> {
         assert_eq!(
+            DateTime::now().modify_by_relative_input("1")?.date,
+            now_plus_secs(60)
+        );
+        assert_eq!(
+            DateTime::now().modify_by_relative_input("-1")?.date,
+            now_plus_secs(-60)
+        );
+
+        assert_eq!(
             DateTime::now().modify_by_relative_input("2s")?.date,
             now_plus_secs(2)
         );
@@ -2000,10 +2016,10 @@ mod tests {
         );
 
         assert!(DateTime::now().modify_by_relative_input("").is_err());
-        // TODO: make this set 1 minute?
-        assert!(DateTime::now().modify_by_relative_input("1").is_err());
         assert!(DateTime::now().modify_by_relative_input("-").is_err());
-        assert!(DateTime::now().modify_by_relative_input("-1").is_err());
+        assert!(DateTime::now().modify_by_relative_input("--5").is_err());
+        assert!(DateTime::now().modify_by_relative_input("60").is_err());
+        assert!(DateTime::now().modify_by_relative_input("-60").is_err());
         assert!(DateTime::now().modify_by_relative_input("60s").is_err());
         assert!(DateTime::now().modify_by_relative_input("60m").is_err());
         assert!(DateTime::now().modify_by_relative_input("60h").is_err());
