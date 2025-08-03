@@ -1109,6 +1109,8 @@ mod tests {
             }
         );
 
+        assert_eq!(Action::build("version", &[])?, Action::Version);
+        assert!(Action::build("version", &[String::from("hello")]).is_err());
 
         assert!(Action::build("hello", &[]).is_err());
 
