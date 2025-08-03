@@ -660,7 +660,7 @@ fn start(config: &Config) -> Result<(), Box<dyn Error>> {
         return Err("this session file is already created")?;
     };
     fs::write(&path, &contents).map_err(|_| "session directory doesn't exist")?;
-    println!("Started: {}", DateTime::format(&session.start()));
+    println!("Started: {}", &date.to_formatted_time());
     Ok(())
 }
 
@@ -674,8 +674,7 @@ fn stop(config: &Config) -> Result<(), Box<dyn Error>> {
 
     session.stop(&date)?;
     session.save()?;
-    let mark = session.marks.last().expect("Last mark was just added");
-    println!("Stopped: {}", DateTime::format(&mark.date));
+    println!("Stopped: {}", &date.to_formatted_time());
     Ok(())
 }
 
@@ -689,8 +688,7 @@ fn mark(config: &Config) -> Result<(), Box<dyn Error>> {
 
     session.mark(&date)?;
     session.save()?;
-    let mark = session.marks.last().expect("Last mark was just added");
-    println!("Marked: {}", DateTime::format(&mark.date));
+    println!("Marked: {}", &date.to_formatted_time());
     Ok(())
 }
 
@@ -704,7 +702,7 @@ fn remark(config: &Config) -> Result<(), Box<dyn Error>> {
 
     session.remark(&date);
     session.save()?;
-    println!("Remarked to: {}", date.to_formatted());
+    println!("Remarked to: {}", &date.to_formatted_time());
     Ok(())
 }
 
@@ -816,6 +814,10 @@ impl DateTime {
 
     fn to_formatted(&self) -> String {
         DateTime::format(&self.date)
+    }
+
+    fn to_formatted_time(&self) -> String {
+        self.date.format("%T").to_string()
     }
 
     // TEST: that it works when the months change in the middle of the week.
