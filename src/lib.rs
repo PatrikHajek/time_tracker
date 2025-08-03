@@ -2026,11 +2026,15 @@ mod tests {
         assert!(DateTime::now().modify_by_relative_input("-60s").is_err());
         assert!(DateTime::now().modify_by_relative_input("-60m").is_err());
         assert!(DateTime::now().modify_by_relative_input("-60h").is_err());
+        assert!(DateTime::now().modify_by_relative_input("--60s").is_err());
+        assert!(DateTime::now().modify_by_relative_input("--60m").is_err());
+        assert!(DateTime::now().modify_by_relative_input("--60h").is_err());
         assert!(DateTime::now()
             .modify_by_relative_input("12:05:37")
             .is_err());
         assert!(DateTime::now().modify_by_relative_input("24:05").is_err());
         assert!(DateTime::now().modify_by_relative_input("23:60").is_err());
+        assert!(DateTime::now().modify_by_relative_input("--23:40").is_err());
 
         Ok(())
     }
