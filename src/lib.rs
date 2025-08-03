@@ -704,7 +704,7 @@ fn remark(config: &Config) -> Result<(), Box<dyn Error>> {
 
     session.remark(&date);
     session.save()?;
-    println!("Updated current mark's date to current date");
+    println!("Remarked to: {}", date.to_formatted());
     Ok(())
 }
 
