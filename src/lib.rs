@@ -677,7 +677,16 @@ fn stop(config: &Config) -> Result<(), Box<dyn Error>> {
 
     session.stop(&date)?;
     session.save()?;
-    println!("Stopped: {}", &date.to_formatted_time());
+    println!(
+        "Stopped: {}\n{}",
+        &date.to_formatted_time(),
+        &Aggregator::build(&config)?
+            .view()
+            .lines()
+            .skip(1)
+            .fold(String::new(), |acc, val| acc + val + "\n")
+            .trim_end_matches("\n")
+    );
     Ok(())
 }
 
