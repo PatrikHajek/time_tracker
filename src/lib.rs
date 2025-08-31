@@ -222,7 +222,7 @@ impl Aggregator {
             !(session.marks.len() == 1 && session.marks.last().unwrap().has_label(&Label::End))
         );
         let time = DateTime::get_time_hr_from_milli(session.get_time());
-        let start = DateTime::format(&session.start());
+        let start = DateTime::new(&session.start()).to_formatted_pretty();
         let start_of_week = DateTime::get_start_of_week(&session.start());
         let week_time = self
             .sessions
@@ -1198,7 +1198,7 @@ mod tests {
             path: PathBuf::from("sessions"),
             marks: vec![mark_start, mark_end.clone()],
         };
-        let start = DateTime::format(&session_third.start());
+        let start = DateTime::new(&session_third.start()).to_formatted_pretty();
 
         // Gets ignored because it's not in the current week.
         let mut session_first = Session {
