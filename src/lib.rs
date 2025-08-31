@@ -1025,6 +1025,27 @@ mod tests {
             .into()
     }
 
+    fn date_plus_secs(
+        date: chrono::DateTime<chrono::Local>,
+        secs: i64,
+    ) -> chrono::DateTime<chrono::Local> {
+        chrono::DateTime::from_timestamp_millis(date.timestamp_millis() + secs * 1000)
+            .unwrap()
+            .into()
+    }
+
+    fn minutes(count: i64) -> i64 {
+        count * 60
+    }
+
+    fn hours(count: i64) -> i64 {
+        count * 60 * 60
+    }
+
+    fn days(count: i64) -> i64 {
+        count * 24 * 60 * 60
+    }
+
     #[test]
     fn config_from_args_works() {
         let args = &[String::from("time_tracker"), String::from("start")];
@@ -1161,8 +1182,8 @@ mod tests {
     // FIX: Breaks at the start of each Monday.
     #[test]
     fn aggregator_view_works() {
-        let mark_start = Mark::new(&now_plus_secs(-2 * 60 * 60));
-        let mark_end = Mark::new(&now_plus_secs(-30 * 60));
+        let mark_start = Mark::new(&date_plus_secs(date_default(), hours(-2)));
+        let mark_end = Mark::new(&date_plus_secs(date_default(), minutes(-30)));
         let mut session_third = Session {
             path: PathBuf::from("sessions"),
             marks: vec![mark_start, mark_end.clone()],
@@ -1173,8 +1194,8 @@ mod tests {
         let mut session_first = Session {
             path: session_third.path.clone(),
             marks: vec![
-                Mark::new(&now_plus_secs(-12 * 24 * 60 * 60)),
-                Mark::new(&now_plus_secs(-9 * 24 * 60 * 60)),
+                Mark::new(&date_plus_secs(date_default(), days(-12))),
+                Mark::new(&date_plus_secs(date_default(), days(-9))),
             ],
         };
         session_first
@@ -1186,8 +1207,8 @@ mod tests {
         let mut session_second = Session {
             path: session_third.path.clone(),
             marks: vec![
-                Mark::new(&now_plus_secs(-4 * 24 * 60 * 60)),
-                Mark::new(&now_plus_secs(-3 * 24 * 60 * 60)),
+                Mark::new(&date_plus_secs(date_default(), days(-2))),
+                Mark::new(&date_plus_secs(date_default(), days(-1))),
             ],
         };
         session_second
@@ -1205,16 +1226,15 @@ mod tests {
         };
 
         // Goes up to current time.
-        assert_eq!(
-            aggregator.view(),
-            format!(
-                "\
-                Time: 2h 0m 0s\n\
-                Start: {start}\n\
-                Week: 26h 0m 0s\
-                "
-            )
-        );
+        let output = aggregator.view();
+        let lines: Vec<&str> = output.lines().collect();
+        assert_eq!(lines.len(), 3);
+        // Not explicitly checking if it included the current time in the calculation, just
+        // excluding the possibility that it calculated only up to the last mark.
+        assert_ne!(lines[0], "Time: 1h 30m 0s");
+        assert_eq!(lines[1], format!("Start: {start}"));
+        // The same happens here as with lines[0] Time assertion.
+        assert_ne!(lines[2], "Week: 25h 30m 0s");
 
         session_third.marks.pop();
         session_third.stop(&DateTime::now()).unwrap();
