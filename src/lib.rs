@@ -1905,6 +1905,14 @@ mod tests {
     }
 
     #[test]
+    fn date_time_new_works() {
+        let dt = DateTime {
+            date: date_default(),
+        };
+        assert_eq!(DateTime::new(&date_default()), dt);
+    }
+
+    #[test]
     fn date_time_get_start_of_week_works() {
         let date = DateTime::get_start_of_week(&date_default());
         assert_eq!(date.weekday(), chrono::Weekday::Mon);
