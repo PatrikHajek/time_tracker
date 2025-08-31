@@ -999,7 +999,7 @@ mod tests {
         )
     }
 
-    /// Returns `2002:05:05T12:00:00` with your local timezone.
+    /// Returns `2002:05:05T12:00:00` with your local timezone. The day is a Wednesday.
     fn date_default() -> chrono::DateTime<chrono::Local> {
         DateTime::now()
             .date
@@ -1007,7 +1007,7 @@ mod tests {
             .unwrap()
             .with_month(5)
             .unwrap()
-            .with_day(5)
+            .with_day(8)
             .unwrap()
             .with_hour(12)
             .unwrap()
