@@ -223,7 +223,7 @@ impl Aggregator {
         );
         let time = DateTime::get_time_hr_from_milli(session.get_time());
         let start = DateTime::format(&session.start());
-        let start_of_week = DateTime::get_start_of_week();
+        let start_of_week = DateTime::get_start_of_week(&session.start());
         let week_time = self
             .sessions
             .iter()
@@ -822,8 +822,9 @@ impl DateTime {
 
     // TEST: that it works when the months change in the middle of the week.
     #[allow(dead_code)]
-    fn get_start_of_week() -> chrono::DateTime<chrono::Local> {
-        let date = DateTime::now().date;
+    fn get_start_of_week(
+        date: &chrono::DateTime<chrono::Local>,
+    ) -> chrono::DateTime<chrono::Local> {
         let days_since_monday: i64 = date.weekday().num_days_from_monday().into();
         let date: chrono::DateTime<chrono::Local> = chrono::DateTime::from_timestamp_millis(
             date.timestamp_millis() - days_since_monday * 24 * 60 * 60 * 1000,
@@ -1875,11 +1876,16 @@ mod tests {
 
     #[test]
     fn date_time_get_start_of_week_works() {
-        let date = DateTime::get_start_of_week();
+        let date = DateTime::get_start_of_week(&date_default());
         assert_eq!(date.weekday(), chrono::Weekday::Mon);
-        assert!(
-            DateTime::now().date.timestamp_millis() - date.timestamp_millis()
-                < 7 * 24 * 60 * 60 * 1000
+        assert_eq!(
+            date,
+            // Will break if date_default changes.
+            date_default()
+                .with_day(&date_default().day() - 2)
+                .unwrap()
+                .with_hour(0)
+                .unwrap()
         );
         let time = date.time();
         assert_eq!(time.hour(), 0);
