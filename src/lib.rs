@@ -2026,33 +2026,30 @@ mod tests {
         // tests work.
         // TODO: Create utils for creating/working with dates. Function that takes hour, minute and
         // second as parameters and creates the date or even DateTime.
-        let date = date_default().with_day(date_default().day() - 1).unwrap();
         assert_eq!(
             DateTime {
                 date: date_default()
             }
             .modify_by_relative_input("-12:00")?
             .date,
-            date
+            date_default().with_day(date_default().day() - 1).unwrap()
         );
-        let date = date_default();
         assert_eq!(
             DateTime {
                 date: date_default()
             }
             .modify_by_relative_input("12:00")?
             .date,
-            date
+            date_default()
         );
         // Sets the time and keeps the day because the time already happened today.
-        let date = date_default().with_hour(9).unwrap().with_minute(2).unwrap();
         assert_eq!(
             DateTime {
                 date: date_default()
             }
             .modify_by_relative_input("-9:02")?
             .date,
-            date
+            date_default().with_hour(9).unwrap().with_minute(2).unwrap()
         );
         assert_eq!(
             DateTime {
@@ -2060,51 +2057,48 @@ mod tests {
             }
             .modify_by_relative_input("-09:2")?
             .date,
-            date
+            date_default().with_hour(9).unwrap().with_minute(2).unwrap()
         );
-        let date = date_default()
-            .with_hour(13)
-            .unwrap()
-            .with_minute(15)
-            .unwrap();
         assert_eq!(
             DateTime {
                 date: date_default()
             }
             .modify_by_relative_input("13:15")?
             .date,
-            date
+            date_default()
+                .with_hour(13)
+                .unwrap()
+                .with_minute(15)
+                .unwrap()
         );
         // Sets the time and day because the time hasn't happened today yet.
-        let date = date_default()
-            .with_day(date_default().day() + 1)
-            .unwrap()
-            .with_hour(9)
-            .unwrap()
-            .with_minute(2)
-            .unwrap();
         assert_eq!(
             DateTime {
                 date: date_default()
             }
             .modify_by_relative_input("9:02")?
             .date,
-            date
+            date_default()
+                .with_day(date_default().day() + 1)
+                .unwrap()
+                .with_hour(9)
+                .unwrap()
+                .with_minute(2)
+                .unwrap()
         );
-        let date = date_default()
-            .with_day(date_default().day() - 1)
-            .unwrap()
-            .with_hour(13)
-            .unwrap()
-            .with_minute(15)
-            .unwrap();
         assert_eq!(
             DateTime {
                 date: date_default()
             }
             .modify_by_relative_input("-13:15")?
             .date,
-            date
+            date_default()
+                .with_day(date_default().day() - 1)
+                .unwrap()
+                .with_hour(13)
+                .unwrap()
+                .with_minute(15)
+                .unwrap()
         );
 
         assert!(DateTime::now().modify_by_relative_input("").is_err());
