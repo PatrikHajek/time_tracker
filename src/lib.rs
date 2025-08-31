@@ -999,6 +999,24 @@ mod tests {
         )
     }
 
+    /// Returns `2002:05:05T12:00:00` with your local timezone.
+    fn date_default() -> chrono::DateTime<chrono::Local> {
+        DateTime::now()
+            .date
+            .with_year(2002)
+            .unwrap()
+            .with_month(5)
+            .unwrap()
+            .with_day(5)
+            .unwrap()
+            .with_hour(12)
+            .unwrap()
+            .with_minute(0)
+            .unwrap()
+            .with_second(0)
+            .unwrap()
+    }
+
     fn now_plus_secs(secs: i64) -> chrono::DateTime<chrono::Local> {
         let date = DateTime::now().date;
         chrono::DateTime::from_timestamp_millis(date.timestamp_millis() + secs * 1000)
@@ -1944,89 +1962,93 @@ mod tests {
             now_plus_secs(-2 * 60 * 60)
         );
 
-        let default = DateTime::now()
-            .date
-            .with_hour(12)
-            .unwrap()
-            .with_minute(0)
-            .unwrap()
-            .with_second(0)
-            .unwrap();
         assert_eq!(
             DateTime {
-                date: default.clone()
+                date: date_default(),
             }
             .modify_by_relative_input("10")?
             .date,
-            default.with_minute(10).unwrap()
+            date_default().with_minute(10).unwrap()
         );
         assert_eq!(
             DateTime {
-                date: default.clone()
+                date: date_default()
             }
             .modify_by_relative_input("-10")?
             .date,
-            default.with_hour(11).unwrap().with_minute(10).unwrap()
+            date_default()
+                .with_hour(11)
+                .unwrap()
+                .with_minute(10)
+                .unwrap()
         );
         assert_eq!(
             DateTime {
-                date: default.with_minute(30).unwrap()
+                date: date_default().with_minute(30).unwrap()
             }
             .modify_by_relative_input("10")?
             .date,
-            default.with_hour(13).unwrap().with_minute(10).unwrap()
+            date_default()
+                .with_hour(13)
+                .unwrap()
+                .with_minute(10)
+                .unwrap()
         );
         assert_eq!(
             DateTime {
-                date: default.with_minute(30).unwrap()
+                date: date_default().with_minute(30).unwrap()
             }
             .modify_by_relative_input("-10")?
             .date,
-            default.with_minute(10).unwrap()
+            date_default().with_minute(10).unwrap()
         );
         assert_eq!(
             DateTime {
-                date: default.with_minute(10).unwrap()
+                date: date_default().with_minute(10).unwrap()
             }
             .modify_by_relative_input("10")?
             .date,
-            default.with_minute(10).unwrap()
+            date_default().with_minute(10).unwrap()
         );
         assert_eq!(
             DateTime {
-                date: default.with_minute(10).unwrap()
+                date: date_default().with_minute(10).unwrap()
             }
             .modify_by_relative_input("-10")?
             .date,
-            default.with_hour(11).unwrap().with_minute(10).unwrap()
+            date_default()
+                .with_hour(11)
+                .unwrap()
+                .with_minute(10)
+                .unwrap()
         );
         // FIX: Won't work when months change. Fix everywhere. Create global date with which all
         // tests work.
         // TODO: Create utils for creating/working with dates. Function that takes hour, minute and
         // second as parameters and creates the date or even DateTime.
-        let date = default.with_day(default.day() - 1).unwrap();
+        let date = date_default().with_day(date_default().day() - 1).unwrap();
         assert_eq!(
             DateTime {
-                date: default.clone()
+                date: date_default()
             }
             .modify_by_relative_input("-12:00")?
             .date,
             date
         );
-        let date = default;
+        let date = date_default();
         assert_eq!(
             DateTime {
-                date: default.clone()
+                date: date_default()
             }
             .modify_by_relative_input("12:00")?
             .date,
             date
         );
         // Sets the time and keeps the day because the time already happened today.
-        let date = default.with_hour(9).unwrap().with_minute(2).unwrap();
+        let date = date_default().with_hour(9).unwrap().with_minute(2).unwrap();
         assert_eq!(
             DateTime {
-                date: default.clone()
+                date: date_default()
             }
             .modify_by_relative_input("-9:02")?
             .date,
@@ -2034,24 +2056,28 @@ mod tests {
         );
         assert_eq!(
             DateTime {
-                date: default.clone()
+                date: date_default()
             }
             .modify_by_relative_input("-09:2")?
             .date,
             date
         );
-        let date = default.with_hour(13).unwrap().with_minute(15).unwrap();
+        let date = date_default()
+            .with_hour(13)
+            .unwrap()
+            .with_minute(15)
+            .unwrap();
         assert_eq!(
             DateTime {
-                date: default.clone()
+                date: date_default()
             }
             .modify_by_relative_input("13:15")?
             .date,
             date
         );
         // Sets the time and day because the time hasn't happened today yet.
-        let date = default
-            .with_day(default.day() + 1)
+        let date = date_default()
+            .with_day(date_default().day() + 1)
             .unwrap()
             .with_hour(9)
             .unwrap()
@@ -2059,14 +2085,14 @@ mod tests {
             .unwrap();
         assert_eq!(
             DateTime {
-                date: default.clone()
+                date: date_default()
             }
             .modify_by_relative_input("9:02")?
             .date,
             date
         );
-        let date = default
-            .with_day(default.day() - 1)
+        let date = date_default()
+            .with_day(date_default().day() - 1)
             .unwrap()
             .with_hour(13)
             .unwrap()
@@ -2074,7 +2100,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             DateTime {
-                date: default.clone()
+                date: date_default()
             }
             .modify_by_relative_input("-13:15")?
             .date,
