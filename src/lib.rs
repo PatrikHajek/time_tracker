@@ -991,7 +991,7 @@ mod tests {
     fn get_template(date: &str) -> String {
         format!(
             "\
-            {SESSION_HEADING_PREFIX}{date}\n\
+            {SESSION_HEADING_PREFIX}{SESSION_TITLE}\n\
             \n\
             {MARKS_HEADING}\n\
             \n\
