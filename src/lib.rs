@@ -536,7 +536,10 @@ impl Mark {
     }
 
     fn to_string(&self) -> String {
-        let mut contents = format!("{MARK_HEADING_PREFIX}{}", DateTime::format(&self.date));
+        let mut contents = format!(
+            "{MARK_HEADING_PREFIX}{}",
+            DateTime::new(&self.date).to_formatted_pretty()
+        );
         if !self.labels.is_empty() {
             contents += "\n";
             contents += &self
@@ -808,12 +811,20 @@ impl DateTime {
         DateTime { date }
     }
 
+    fn new(date: &chrono::DateTime<chrono::Local>) -> DateTime {
+        DateTime { date: date.clone() }
+    }
+
     fn format(date: &chrono::DateTime<chrono::Local>) -> String {
         date.format("%FT%T%:z").to_string()
     }
 
     fn to_formatted(&self) -> String {
         DateTime::format(&self.date)
+    }
+
+    fn to_formatted_pretty(&self) -> String {
+        self.date.format("%F %T %:z").to_string()
     }
 
     fn to_formatted_time(&self) -> String {
@@ -1262,7 +1273,7 @@ mod tests {
     #[test]
     fn session_file_build_works() {
         let path = PathBuf::new();
-        let contents = get_template(&DateTime::now().to_formatted());
+        let contents = get_template(&DateTime::now().to_formatted_pretty());
         let file = SessionFile::build(&path, &contents).unwrap();
         assert_eq!(&file.contents, &contents);
     }
@@ -1270,7 +1281,7 @@ mod tests {
     #[test]
     fn session_file_get_heading_with_contents_works() {
         let dt = &DateTime::now();
-        let contents = get_template(&dt.to_formatted());
+        let contents = get_template(&dt.to_formatted_pretty());
         let heading_contents = SessionFile::get_heading_with_contents(MARKS_HEADING, &contents);
         assert_eq!(
             heading_contents,
@@ -1280,7 +1291,7 @@ mod tests {
                 \n\
                 {MARK_HEADING_PREFIX}{}\
                 ",
-                dt.to_formatted()
+                dt.to_formatted_pretty()
             )
         );
     }
@@ -1568,8 +1579,8 @@ mod tests {
                 \n\
                 {LABEL_END}\n\
                 ",
-            mark_first_dt.to_formatted(),
-            mark_second_dt.to_formatted(),
+            mark_first_dt.to_formatted_pretty(),
+            mark_second_dt.to_formatted_pretty(),
         );
         let file = SessionFile::build(&PathBuf::new(), &contents).unwrap();
         let session = Session {
@@ -1635,8 +1646,8 @@ mod tests {
                     I am the second mark!\n\
                     Hi!\n\
                     ",
-                mark_first_dt.to_formatted(),
-                mark_second_dt.to_formatted()
+                mark_first_dt.to_formatted_pretty(),
+                mark_second_dt.to_formatted_pretty()
             ),
         )?;
 
@@ -1767,7 +1778,7 @@ mod tests {
                 \n\
                 This is some content.\n\
                 ",
-            dt.to_formatted()
+            dt.to_formatted_pretty()
         );
         let mark = Mark {
             date: dt.date,
@@ -1794,7 +1805,7 @@ mod tests {
                 This is a content of a mark.\n\
                 How are you?\
                 ",
-            dt.to_formatted()
+            dt.to_formatted_pretty()
         );
         assert_eq!(mark.to_string(), output);
     }
