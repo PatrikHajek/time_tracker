@@ -1179,7 +1179,6 @@ mod tests {
         Ok(())
     }
 
-    // FIX: Breaks at the start of each Monday.
     #[test]
     fn aggregator_view_works() {
         let mark_start = Mark::new(&date_plus_secs(date_default(), hours(-2)));
