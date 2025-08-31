@@ -2007,19 +2007,15 @@ mod tests {
         );
 
         assert_eq!(
-            DateTime {
-                date: date_default(),
-            }
-            .modify_by_relative_input("10")?
-            .date,
+            DateTime::new(&date_default(),)
+                .modify_by_relative_input("10")?
+                .date,
             date_default().with_minute(10).unwrap()
         );
         assert_eq!(
-            DateTime {
-                date: date_default()
-            }
-            .modify_by_relative_input("-10")?
-            .date,
+            DateTime::new(&date_default())
+                .modify_by_relative_input("-10")?
+                .date,
             date_default()
                 .with_hour(11)
                 .unwrap()
@@ -2027,11 +2023,9 @@ mod tests {
                 .unwrap()
         );
         assert_eq!(
-            DateTime {
-                date: date_default().with_minute(30).unwrap()
-            }
-            .modify_by_relative_input("10")?
-            .date,
+            DateTime::new(&date_default().with_minute(30).unwrap())
+                .modify_by_relative_input("10")?
+                .date,
             date_default()
                 .with_hour(13)
                 .unwrap()
@@ -2039,27 +2033,21 @@ mod tests {
                 .unwrap()
         );
         assert_eq!(
-            DateTime {
-                date: date_default().with_minute(30).unwrap()
-            }
-            .modify_by_relative_input("-10")?
-            .date,
+            DateTime::new(&date_default().with_minute(30).unwrap())
+                .modify_by_relative_input("-10")?
+                .date,
             date_default().with_minute(10).unwrap()
         );
         assert_eq!(
-            DateTime {
-                date: date_default().with_minute(10).unwrap()
-            }
-            .modify_by_relative_input("10")?
-            .date,
+            DateTime::new(&date_default().with_minute(10).unwrap())
+                .modify_by_relative_input("10")?
+                .date,
             date_default().with_minute(10).unwrap()
         );
         assert_eq!(
-            DateTime {
-                date: date_default().with_minute(10).unwrap()
-            }
-            .modify_by_relative_input("-10")?
-            .date,
+            DateTime::new(&date_default().with_minute(10).unwrap())
+                .modify_by_relative_input("-10")?
+                .date,
             date_default()
                 .with_hour(11)
                 .unwrap()
@@ -2071,44 +2059,34 @@ mod tests {
         // TODO: Create utils for creating/working with dates. Function that takes hour, minute and
         // second as parameters and creates the date or even DateTime.
         assert_eq!(
-            DateTime {
-                date: date_default()
-            }
-            .modify_by_relative_input("-12:00")?
-            .date,
+            DateTime::new(&date_default())
+                .modify_by_relative_input("-12:00")?
+                .date,
             date_default().with_day(date_default().day() - 1).unwrap()
         );
         assert_eq!(
-            DateTime {
-                date: date_default()
-            }
-            .modify_by_relative_input("12:00")?
-            .date,
+            DateTime::new(&date_default())
+                .modify_by_relative_input("12:00")?
+                .date,
             date_default()
         );
         // Sets the time and keeps the day because the time already happened today.
         assert_eq!(
-            DateTime {
-                date: date_default()
-            }
-            .modify_by_relative_input("-9:02")?
-            .date,
+            DateTime::new(&date_default())
+                .modify_by_relative_input("-9:02")?
+                .date,
             date_default().with_hour(9).unwrap().with_minute(2).unwrap()
         );
         assert_eq!(
-            DateTime {
-                date: date_default()
-            }
-            .modify_by_relative_input("-09:2")?
-            .date,
+            DateTime::new(&date_default())
+                .modify_by_relative_input("-09:2")?
+                .date,
             date_default().with_hour(9).unwrap().with_minute(2).unwrap()
         );
         assert_eq!(
-            DateTime {
-                date: date_default()
-            }
-            .modify_by_relative_input("13:15")?
-            .date,
+            DateTime::new(&date_default())
+                .modify_by_relative_input("13:15")?
+                .date,
             date_default()
                 .with_hour(13)
                 .unwrap()
@@ -2117,11 +2095,9 @@ mod tests {
         );
         // Sets the time and day because the time hasn't happened today yet.
         assert_eq!(
-            DateTime {
-                date: date_default()
-            }
-            .modify_by_relative_input("9:02")?
-            .date,
+            DateTime::new(&date_default())
+                .modify_by_relative_input("9:02")?
+                .date,
             date_default()
                 .with_day(date_default().day() + 1)
                 .unwrap()
@@ -2131,11 +2107,9 @@ mod tests {
                 .unwrap()
         );
         assert_eq!(
-            DateTime {
-                date: date_default()
-            }
-            .modify_by_relative_input("-13:15")?
-            .date,
+            DateTime::new(&date_default())
+                .modify_by_relative_input("-13:15")?
+                .date,
             date_default()
                 .with_day(date_default().day() - 1)
                 .unwrap()
