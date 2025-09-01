@@ -221,6 +221,7 @@ impl Aggregator {
         assert!(
             !(session.marks.len() == 1 && session.marks.last().unwrap().has_label(&Label::End))
         );
+
         let time = DateTime::get_time_hr_from_milli(session.get_time());
         let start = DateTime::new(&session.start()).to_formatted_pretty();
         let start_of_week = DateTime::get_start_of_week(&session.start());
@@ -244,6 +245,7 @@ impl Aggregator {
         } else {
             "0"
         };
+
         let mut str = String::new();
         if !session.is_active() {
             str += "No active session, last session:\n";
