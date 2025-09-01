@@ -230,7 +230,7 @@ impl Aggregator {
             .filter(|v| v.start().timestamp_millis() - start_of_week.timestamp_millis() >= 0)
             .fold(0, |acc, val| acc + val.get_time());
         let week_time = DateTime::get_time_hr_from_milli(week_time);
-        let time = DateTime::get_time_hr_from_milli(session.get_time());
+        let session_time = DateTime::get_time_hr_from_milli(session.get_time());
         let mark_time = if session.is_active() {
             let timestamp_now = DateTime::now().date.timestamp_millis();
             let timestamp_mark = session
@@ -254,7 +254,7 @@ impl Aggregator {
             "\
             Start: {start}\n\
             Week: {week_time}\n\
-            Time: {time}\n\
+            Time: {session_time}\n\
             Mark: {mark_time}\
             "
         );
