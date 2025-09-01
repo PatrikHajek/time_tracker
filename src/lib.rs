@@ -22,7 +22,7 @@ const LABEL_SKIP: &str = "- skip";
 const LABEL_TAG: &str = "- tag";
 const LABEL_TAG_SURROUND: &str = "`";
 
-const COMMAND_VIEW_MARK_CONTENT_SEPARATOR: &str = "---------------------------------";
+const COMMAND_VIEW_MARK_CONTENTS_SEPARATOR: &str = "---------------------------------";
 
 #[derive(PartialEq, Debug)]
 pub struct Config {
@@ -258,7 +258,7 @@ impl Aggregator {
             Week: {week_time}\n\
             Time: {session_time}\n\
             Mark: {mark_last_time}\n\
-            {COMMAND_VIEW_MARK_CONTENT_SEPARATOR}\n\
+            {COMMAND_VIEW_MARK_CONTENTS_SEPARATOR}\n\
             {mark_last_contents}\
             "
         );
@@ -1275,7 +1275,7 @@ mod tests {
         assert_ne!(lines[1], "Week: 25h 30m 0s");
         assert_ne!(lines[2], "Time: 1h 30m 0s");
         assert_ne!(lines[3], "Mark: 0");
-        assert_eq!(lines[4], COMMAND_VIEW_MARK_CONTENT_SEPARATOR);
+        assert_eq!(lines[4], COMMAND_VIEW_MARK_CONTENTS_SEPARATOR);
         assert_eq!(lines[5], mark_end.to_string());
 
         session_third.marks.pop();
@@ -1299,7 +1299,7 @@ mod tests {
                 Week: 25h 30m 0s\n\
                 Time: 1h 30m 0s\n\
                 Mark: 0\n\
-                {COMMAND_VIEW_MARK_CONTENT_SEPARATOR}\n\
+                {COMMAND_VIEW_MARK_CONTENTS_SEPARATOR}\n\
                 {}\
                 ",
                 mark_end.to_string()
