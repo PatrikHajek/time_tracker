@@ -237,7 +237,7 @@ impl Aggregator {
             .marks
             .last()
             .expect("session must have at least one mark");
-        let mark_time = if session.is_active() {
+        let mark_last_time = if session.is_active() {
             let timestamp_now = DateTime::now().date.timestamp_millis();
             let timestamp_mark = mark_last.date.timestamp_millis();
             let timestamp = timestamp_now - timestamp_mark;
@@ -257,7 +257,7 @@ impl Aggregator {
             Start: {start}\n\
             Week: {week_time}\n\
             Time: {session_time}\n\
-            Mark: {mark_time}\n\
+            Mark: {mark_last_time}\n\
             {COMMAND_VIEW_MARK_CONTENT_SEPARATOR}\n\
             {mark_last_contents}\
             "
