@@ -22,7 +22,7 @@ const LABEL_SKIP: &str = "- skip";
 const LABEL_TAG: &str = "- tag";
 const LABEL_TAG_SURROUND: &str = "`";
 
-const COMMAND_VIEW_MARK_CONTENT_SEPARATOR: &str = "-------------------------";
+const COMMAND_VIEW_MARK_CONTENT_SEPARATOR: &str = "---------------------------------";
 
 #[derive(PartialEq, Debug)]
 pub struct Config {
