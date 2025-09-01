@@ -230,15 +230,30 @@ impl Aggregator {
             .filter(|v| v.start().timestamp_millis() - start_of_week.timestamp_millis() >= 0)
             .fold(0, |acc, val| acc + val.get_time());
         let week_time = DateTime::get_time_hr_from_milli(week_time);
+        let mark_time = if session.is_active() {
+            let timestamp_now = DateTime::now().date.timestamp_millis();
+            let timestamp_mark = session
+                .marks
+                .last()
+                .expect("session must have at least one mark")
+                .date
+                .timestamp_millis();
+            let timestamp = timestamp_now - timestamp_mark;
+            assert!(timestamp >= 0);
+            &DateTime::get_time_hr_from_milli(timestamp.try_into().unwrap())
+        } else {
+            "0"
+        };
         let mut str = String::new();
         if !session.is_active() {
             str += "No active session, last session:\n";
         }
         str += &format!(
             "\
-            Time: {time}\n\
             Start: {start}\n\
-            Week: {week_time}\
+            Week: {week_time}\n\
+            Time: {time}\n\
+            Mark: {mark_time}\
             "
         );
         str
@@ -1247,13 +1262,13 @@ mod tests {
         // Goes up to current time.
         let output = aggregator.view();
         let lines: Vec<&str> = output.lines().collect();
-        assert_eq!(lines.len(), 3);
+        assert_eq!(lines.len(), 4);
+        assert_eq!(lines[0], format!("Start: {start}"));
         // Not explicitly checking if it included the current time in the calculation, just
         // excluding the possibility that it calculated only up to the last mark.
-        assert_ne!(lines[0], "Time: 1h 30m 0s");
-        assert_eq!(lines[1], format!("Start: {start}"));
-        // The same happens here as with lines[0] Time assertion.
-        assert_ne!(lines[2], "Week: 25h 30m 0s");
+        assert_ne!(lines[1], "Week: 25h 30m 0s");
+        assert_ne!(lines[2], "Time: 1h 30m 0s");
+        assert_ne!(lines[3], "Mark: 0");
 
         session_third.marks.pop();
         session_third.stop(&DateTime::now()).unwrap();
@@ -1271,9 +1286,10 @@ mod tests {
             format!(
                 "\
                 No active session, last session:\n\
-                Time: 1h 30m 0s\n\
                 Start: {start}\n\
-                Week: 25h 30m 0s\
+                Week: 25h 30m 0s\n\
+                Time: 1h 30m 0s\n\
+                Mark: 0\
                 "
             )
         );
