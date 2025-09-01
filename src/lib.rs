@@ -22,6 +22,8 @@ const LABEL_SKIP: &str = "- skip";
 const LABEL_TAG: &str = "- tag";
 const LABEL_TAG_SURROUND: &str = "`";
 
+const COMMAND_VIEW_MARK_CONTENT_SEPARATOR: &str = "-------------------------";
+
 #[derive(PartialEq, Debug)]
 pub struct Config {
     action: Action,
@@ -231,20 +233,20 @@ impl Aggregator {
             .fold(0, |acc, val| acc + val.get_time());
         let week_time = DateTime::get_time_hr_from_milli(week_time);
         let session_time = DateTime::get_time_hr_from_milli(session.get_time());
+        let mark_last = session
+            .marks
+            .last()
+            .expect("session must have at least one mark");
         let mark_time = if session.is_active() {
             let timestamp_now = DateTime::now().date.timestamp_millis();
-            let timestamp_mark = session
-                .marks
-                .last()
-                .expect("session must have at least one mark")
-                .date
-                .timestamp_millis();
+            let timestamp_mark = mark_last.date.timestamp_millis();
             let timestamp = timestamp_now - timestamp_mark;
             assert!(timestamp >= 0);
             &DateTime::get_time_hr_from_milli(timestamp.try_into().unwrap())
         } else {
             "0"
         };
+        let mark_last_contents = mark_last.to_string();
 
         let mut str = String::new();
         if !session.is_active() {
@@ -255,7 +257,9 @@ impl Aggregator {
             Start: {start}\n\
             Week: {week_time}\n\
             Time: {session_time}\n\
-            Mark: {mark_time}\
+            Mark: {mark_time}\n\
+            {COMMAND_VIEW_MARK_CONTENT_SEPARATOR}\n\
+            {mark_last_contents}\
             "
         );
         str
@@ -1264,18 +1268,21 @@ mod tests {
         // Goes up to current time.
         let output = aggregator.view();
         let lines: Vec<&str> = output.lines().collect();
-        assert_eq!(lines.len(), 4);
+        assert_eq!(lines.len(), 6);
         assert_eq!(lines[0], format!("Start: {start}"));
         // Not explicitly checking if it included the current time in the calculation, just
         // excluding the possibility that it calculated only up to the last mark.
         assert_ne!(lines[1], "Week: 25h 30m 0s");
         assert_ne!(lines[2], "Time: 1h 30m 0s");
         assert_ne!(lines[3], "Mark: 0");
+        assert_eq!(lines[4], COMMAND_VIEW_MARK_CONTENT_SEPARATOR);
+        assert_eq!(lines[5], mark_end.to_string());
 
         session_third.marks.pop();
         session_third.stop(&DateTime::now()).unwrap();
         let mark = &mut session_third.marks[1];
         mark.date = mark_end.date;
+        let mark_end = session_third.marks.last().unwrap();
         let aggregator = Aggregator {
             sessions: vec![
                 session_first.clone(),
@@ -1291,8 +1298,11 @@ mod tests {
                 Start: {start}\n\
                 Week: 25h 30m 0s\n\
                 Time: 1h 30m 0s\n\
-                Mark: 0\
-                "
+                Mark: 0\n\
+                {COMMAND_VIEW_MARK_CONTENT_SEPARATOR}\n\
+                {}\
+                ",
+                mark_end.to_string()
             )
         );
     }
