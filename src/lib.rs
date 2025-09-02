@@ -2091,8 +2091,6 @@ mod tests {
                 .with_minute(10)
                 .unwrap()
         );
-        // FIX: Won't work when months change. Fix everywhere. Create global date with which all
-        // tests work.
         // TODO: Create utils for creating/working with dates. Function that takes hour, minute and
         // second as parameters and creates the date or even DateTime.
         assert_eq!(
