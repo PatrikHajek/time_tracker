@@ -1030,6 +1030,9 @@ fn get_git_branch_name() -> Result<String, Box<dyn Error>> {
         .output()?;
     if output.status.success() {
         let name = String::from_utf8(output.stdout)?.trim().to_owned();
+        if name.is_empty() {
+            return Err("branch name is empty")?;
+        }
         Ok(name)
     } else {
         let error_message = String::from_utf8(output.stderr)?;
