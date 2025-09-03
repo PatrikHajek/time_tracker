@@ -56,7 +56,7 @@ impl Config {
         Ok(config)
     }
 
-    fn from_args(args: &[String]) -> Result<Config, String> {
+    fn from_args(args: &[String]) -> Result<Config, Box<dyn Error>> {
         if args.len() < 2 {
             return Err("not enough arguments")?;
         }
@@ -107,7 +107,7 @@ enum Action {
 }
 
 impl Action {
-    fn build(name: &str, args: &[String]) -> Result<Action, String> {
+    fn build(name: &str, args: &[String]) -> Result<Action, Box<dyn Error>> {
         let out = match name {
             "start" => match args.len() {
                 0 => Action::Start {
@@ -175,9 +175,11 @@ impl Action {
                 } else if args.len() > 1 {
                     return Err("too many arguments")?;
                 }
-                Action::Write {
-                    text: args[0].to_owned(),
-                }
+                let text = match args[0].trim() {
+                    "-b" => get_git_branch_name()?,
+                    text => text.to_owned(),
+                };
+                Action::Write { text }
             }
             "version" => {
                 if args.len() != 0 {
@@ -185,7 +187,7 @@ impl Action {
                 }
                 Action::Version
             }
-            name => return Err(format!("unrecognized command `{name}`")),
+            name => return Err(format!("unrecognized command `{name}`"))?,
         };
         Ok(out)
     }
