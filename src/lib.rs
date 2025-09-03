@@ -4,6 +4,7 @@ use std::{
     error::Error,
     fs, io,
     path::{Path, PathBuf},
+    process::Command,
     str::FromStr,
 };
 
@@ -1021,6 +1022,19 @@ fn read_sessions_dir(config: &Config) -> Result<Vec<PathBuf>, Box<dyn Error>> {
         .collect::<Result<Vec<_>, io::Error>>()?;
     dir.sort();
     Ok(dir)
+}
+
+fn get_git_branch_name() -> Result<String, Box<dyn Error>> {
+    let output = Command::new("git")
+        .args(["branch", "--show-current"])
+        .output()?;
+    if output.status.success() {
+        let name = String::from_utf8(output.stdout)?.trim().to_owned();
+        Ok(name)
+    } else {
+        let error_message = String::from_utf8(output.stderr)?;
+        Err(format!("Failed to get git branch name: {error_message}"))?
+    }
 }
 
 #[cfg(test)]
