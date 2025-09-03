@@ -816,7 +816,7 @@ fn write(config: &Config) -> Result<(), Box<dyn Error>> {
         }
     }
     session.save()?;
-    println!("Text was successfully written to current mark");
+    println!("Wrote:\n{text}");
     Ok(())
 }
 
