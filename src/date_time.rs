@@ -23,6 +23,29 @@ impl DateTime {
         DateTime { date: date.clone() }
     }
 
+    fn plus_milli(&self, milli: i64) -> DateTime {
+        let date = chrono::DateTime::from_timestamp_millis(self.date.timestamp_millis() + milli)
+            .unwrap()
+            .into();
+        DateTime { date }
+    }
+
+    pub fn plus_seconds(&self, seconds: i64) -> DateTime {
+        self.plus_milli(seconds * 1000)
+    }
+
+    pub fn plus_minutes(&self, minutes: i64) -> DateTime {
+        self.plus_milli(minutes * 60 * 1000)
+    }
+
+    pub fn plus_hours(&self, hours: i64) -> DateTime {
+        self.plus_milli(hours * 60 * 60 * 1000)
+    }
+
+    pub fn plus_days(&self, days: i64) -> DateTime {
+        self.plus_milli(days * 24 * 60 * 60 * 1000)
+    }
+
     pub fn format(date: &chrono::DateTime<chrono::Local>) -> String {
         date.format("%FT%T%:z").to_string()
     }
@@ -206,6 +229,125 @@ mod tests {
             date: test_utils::date_default(),
         };
         assert_eq!(DateTime::new(&test_utils::date_default()), dt);
+    }
+
+    #[test]
+    fn date_time_plus_milli_works() {
+        fn date_default_plus_milli(milli: i64) -> chrono::DateTime<chrono::Local> {
+            let date_default = test_utils::date_default();
+            chrono::DateTime::from_timestamp_millis(date_default.timestamp_millis() + milli)
+                .unwrap()
+                .into()
+        }
+
+        assert_eq!(
+            DateTime::new(&test_utils::date_default()).plus_milli(500),
+            DateTime::new(&date_default_plus_milli(500))
+        );
+        assert_eq!(
+            DateTime::new(&test_utils::date_default()).plus_milli(500_000_000_000),
+            DateTime::new(&date_default_plus_milli(500_000_000_000))
+        );
+        assert_eq!(
+            DateTime::new(&test_utils::date_default()).plus_milli(0),
+            DateTime::new(&date_default_plus_milli(0))
+        );
+        assert_eq!(
+            DateTime::new(&test_utils::date_default()).plus_milli(-0),
+            DateTime::new(&date_default_plus_milli(-0))
+        );
+        assert_eq!(
+            DateTime::new(&test_utils::date_default()).plus_milli(-300),
+            DateTime::new(&date_default_plus_milli(-300))
+        );
+        assert_eq!(
+            DateTime::new(&test_utils::date_default()).plus_milli(-300_000_000),
+            DateTime::new(&date_default_plus_milli(-300_000_000))
+        );
+    }
+
+    #[test]
+    fn date_time_plus_seconds_works() {
+        let date_default = test_utils::date_default();
+        assert_eq!(
+            DateTime::new(&date_default).plus_seconds(15),
+            DateTime::new(&date_default).plus_milli(15 * 1000)
+        );
+        assert_eq!(
+            DateTime::new(&date_default).plus_seconds(1500),
+            DateTime::new(&date_default).plus_milli(1500 * 1000)
+        );
+        assert_eq!(
+            DateTime::new(&date_default).plus_seconds(-12),
+            DateTime::new(&date_default).plus_milli(-12 * 1000)
+        );
+        assert_eq!(
+            DateTime::new(&date_default).plus_seconds(-400),
+            DateTime::new(&date_default).plus_milli(-400 * 1000)
+        );
+    }
+
+    #[test]
+    fn date_time_plus_minutes_works() {
+        let date_default = test_utils::date_default();
+        assert_eq!(
+            DateTime::new(&date_default).plus_minutes(15),
+            DateTime::new(&date_default).plus_milli(15 * 60 * 1000)
+        );
+        assert_eq!(
+            DateTime::new(&date_default).plus_minutes(1500),
+            DateTime::new(&date_default).plus_milli(1500 * 60 * 1000)
+        );
+        assert_eq!(
+            DateTime::new(&date_default).plus_minutes(-12),
+            DateTime::new(&date_default).plus_milli(-12 * 60 * 1000)
+        );
+        assert_eq!(
+            DateTime::new(&date_default).plus_minutes(-400),
+            DateTime::new(&date_default).plus_milli(-400 * 60 * 1000)
+        );
+    }
+
+    #[test]
+    fn date_time_plus_hours_works() {
+        let date_default = test_utils::date_default();
+        assert_eq!(
+            DateTime::new(&date_default).plus_hours(15),
+            DateTime::new(&date_default).plus_milli(15 * 60 * 60 * 1000)
+        );
+        assert_eq!(
+            DateTime::new(&date_default).plus_hours(1500),
+            DateTime::new(&date_default).plus_milli(1500 * 60 * 60 * 1000)
+        );
+        assert_eq!(
+            DateTime::new(&date_default).plus_hours(-12),
+            DateTime::new(&date_default).plus_milli(-12 * 60 * 60 * 1000)
+        );
+        assert_eq!(
+            DateTime::new(&date_default).plus_hours(-400),
+            DateTime::new(&date_default).plus_milli(-400 * 60 * 60 * 1000)
+        );
+    }
+
+    #[test]
+    fn date_time_plus_days_works() {
+        let date_default = test_utils::date_default();
+        assert_eq!(
+            DateTime::new(&date_default).plus_days(15),
+            DateTime::new(&date_default).plus_milli(15 * 24 * 60 * 60 * 1000)
+        );
+        assert_eq!(
+            DateTime::new(&date_default).plus_days(1500),
+            DateTime::new(&date_default).plus_milli(1500 * 24 * 60 * 60 * 1000)
+        );
+        assert_eq!(
+            DateTime::new(&date_default).plus_days(-12),
+            DateTime::new(&date_default).plus_milli(-12 * 24 * 60 * 60 * 1000)
+        );
+        assert_eq!(
+            DateTime::new(&date_default).plus_days(-400),
+            DateTime::new(&date_default).plus_milli(-400 * 24 * 60 * 60 * 1000)
+        );
     }
 
     #[test]
