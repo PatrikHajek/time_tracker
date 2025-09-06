@@ -30,18 +30,22 @@ impl DateTime {
         DateTime { date }
     }
 
+    #[allow(dead_code)]
     pub fn plus_seconds(&self, seconds: i64) -> DateTime {
         self.plus_milli(seconds * 1000)
     }
 
+    #[allow(dead_code)]
     pub fn plus_minutes(&self, minutes: i64) -> DateTime {
         self.plus_milli(minutes * 60 * 1000)
     }
 
+    #[allow(dead_code)]
     pub fn plus_hours(&self, hours: i64) -> DateTime {
         self.plus_milli(hours * 60 * 60 * 1000)
     }
 
+    #[allow(dead_code)]
     pub fn plus_days(&self, days: i64) -> DateTime {
         self.plus_milli(days * 24 * 60 * 60 * 1000)
     }
