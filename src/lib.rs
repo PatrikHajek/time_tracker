@@ -8,7 +8,11 @@ use std::{
     str::FromStr,
 };
 
-use chrono::{Datelike, Timelike};
+use crate::date_time::DateTime;
+
+mod date_time;
+#[cfg(test)]
+mod test_utils;
 
 const CONFIG_PATH: &str = "~/.timetracker.toml";
 const CONFIG_SESSIONS_PATH: &str = "sessions_path";
@@ -825,182 +829,6 @@ fn version() {
     println!("v{version}");
 }
 
-// TODO: Use this in place of almost all chrono::DateTime.
-#[derive(PartialEq, Debug)]
-struct DateTime {
-    date: chrono::DateTime<chrono::Local>,
-}
-
-// TODO: Implement From<chrono::DateTime> trait.
-// TODO: Implement trait for comparison between DateTime and chrono::DateTime?
-// TODO: Go through and make all functions that should be methods methods.
-impl DateTime {
-    fn now() -> DateTime {
-        let now = chrono::Local::now();
-        let date =
-            chrono::NaiveDateTime::new(now.date_naive(), now.time().with_nanosecond(0).unwrap())
-                .and_local_timezone(now.timezone())
-                .unwrap();
-        DateTime { date }
-    }
-
-    fn new(date: &chrono::DateTime<chrono::Local>) -> DateTime {
-        DateTime { date: date.clone() }
-    }
-
-    fn format(date: &chrono::DateTime<chrono::Local>) -> String {
-        date.format("%FT%T%:z").to_string()
-    }
-
-    fn to_formatted(&self) -> String {
-        DateTime::format(&self.date)
-    }
-
-    fn to_formatted_pretty(&self) -> String {
-        self.date.format("%F %T %:z").to_string()
-    }
-
-    fn to_formatted_time(&self) -> String {
-        self.date.format("%T").to_string()
-    }
-
-    // TEST: that it works when the months change in the middle of the week.
-    #[allow(dead_code)]
-    fn get_start_of_week(
-        date: &chrono::DateTime<chrono::Local>,
-    ) -> chrono::DateTime<chrono::Local> {
-        let days_since_monday: i64 = date.weekday().num_days_from_monday().into();
-        let date: chrono::DateTime<chrono::Local> = chrono::DateTime::from_timestamp_millis(
-            date.timestamp_millis() - days_since_monday * 24 * 60 * 60 * 1000,
-        )
-        .unwrap()
-        .into();
-        let date = date
-            .with_time(chrono::NaiveTime::from_hms_opt(0, 0, 0).unwrap())
-            .unwrap();
-        date
-    }
-
-    // TODO: move to it's own struct or combine with std::time::Duration?
-    fn get_time(
-        start: &chrono::DateTime<chrono::Local>,
-        end: &chrono::DateTime<chrono::Local>,
-    ) -> u64 {
-        let time = end.timestamp_millis() - start.timestamp_millis();
-        time.try_into()
-            .expect("start date must always be smaller than end date")
-    }
-
-    fn get_time_hr_from_milli(milli: u64) -> String {
-        let mut timestamp = milli / 1000;
-        const UNIT: u64 = 60;
-        let seconds = timestamp % UNIT;
-        timestamp /= UNIT;
-        let minutes = timestamp % UNIT;
-        timestamp /= UNIT;
-        let hours = timestamp;
-        format!("{hours}h {minutes}m {seconds}s")
-    }
-
-    // TODO: Refactor.
-    fn modify_by_relative_input(&self, text: &str) -> Result<Self, &'static str> {
-        let mut text = text.trim();
-        let mut sign = 1;
-        if text.starts_with("-") {
-            text = &text[1..];
-            sign = -1;
-        }
-
-        if text.ends_with("h") || text.ends_with("m") || text.ends_with("s") {
-            let mut time = text[0..text.len() - 1]
-                .parse::<i64>()
-                .map_err(|_e| ())
-                .and_then(|v| if v >= 0 && v < 60 { Ok(v) } else { Err(()) })
-                .map_err(|_e| "failed to parse provided text")?;
-            let power = match text.chars().last().unwrap() {
-                's' => 0,
-                'm' => 1,
-                'h' => 2,
-                _ => panic!("not other option possible in this conditional"),
-            };
-            time = sign * time * i64::pow(60, power) * 1000;
-            let date = chrono::DateTime::from_timestamp_millis(self.date.timestamp_millis() + time)
-                .unwrap()
-                .into();
-            return Ok(DateTime { date });
-        }
-
-        const SEPARATOR: &str = ":";
-        let separator_count = text.matches(SEPARATOR).collect::<Vec<&str>>().len();
-        if text.len() <= "23:59".len()
-            && separator_count == 1
-            && !text.starts_with(SEPARATOR)
-            && !text.ends_with(SEPARATOR)
-        {
-            let colon_index = text
-                .find(SEPARATOR)
-                .expect("should contain exactly one colon");
-            let hour = text[0..colon_index]
-                .parse::<u32>()
-                .map_err(|_e| ())
-                .and_then(|v| if v < 24 { Ok(v) } else { Err(()) })
-                .map_err(|_e| "failed to parse hour")?;
-            let minute = text[colon_index + 1..text.len()]
-                .parse::<u32>()
-                .map_err(|_e| ())
-                .and_then(|v| if v < 60 { Ok(v) } else { Err(()) })
-                .map_err(|_e| "failed to parse minute")?;
-
-            let date_parsed = self
-                .date
-                .with_hour(hour)
-                .unwrap()
-                .with_minute(minute)
-                .unwrap();
-            let difference = date_parsed.timestamp_millis() - self.date.timestamp_millis();
-            let is_same_day = if difference == 0 {
-                sign > 0
-            } else {
-                sign * difference > 0
-            };
-            if is_same_day {
-                return Ok(DateTime { date: date_parsed });
-            } else {
-                let out = chrono::DateTime::from_timestamp_millis(
-                    date_parsed.timestamp_millis() + sign * 24 * 60 * 60 * 1000,
-                )
-                .unwrap()
-                .into();
-                return Ok(DateTime { date: out });
-            }
-        }
-
-        text.parse::<u32>()
-            .map_err(|_e| ())
-            .and_then(|v| if v < 60 { Ok(v) } else { Err(()) })
-            .map(|v| {
-                let date_parsed = self.date.with_minute(v).unwrap();
-                let difference = date_parsed.timestamp_millis() - self.date.timestamp_millis();
-                let is_same_hour = if difference == 0 {
-                    sign > 0
-                } else {
-                    sign * difference > 0
-                };
-                if is_same_hour {
-                    return date_parsed;
-                } else {
-                    return chrono::DateTime::from_timestamp_millis(
-                        date_parsed.timestamp_millis() + sign * 60 * 60 * 1000,
-                    )
-                    .unwrap()
-                    .into();
-                }
-            })
-            .map(|v| DateTime { date: v })
-            .map_err(|_e| "failed to parse provided text")
-    }
-}
-
 fn resolve_path(path: &str) -> Result<PathBuf, &'static str> {
     let path = path.trim();
     if path.starts_with("~") {
@@ -1044,9 +872,10 @@ fn get_git_branch_name() -> Result<String, Box<dyn Error>> {
 
 #[cfg(test)]
 mod tests {
-    use chrono::Datelike;
-
     use super::*;
+
+    use crate::test_utils;
+    use chrono::Timelike;
 
     fn get_template(date: &str) -> String {
         format!(
@@ -1058,31 +887,6 @@ mod tests {
             {MARK_HEADING_PREFIX}{date}\
             "
         )
-    }
-
-    /// Returns `2002:05:05T12:00:00` with your local timezone. The day is a Wednesday.
-    fn date_default() -> chrono::DateTime<chrono::Local> {
-        DateTime::now()
-            .date
-            .with_year(2002)
-            .unwrap()
-            .with_month(5)
-            .unwrap()
-            .with_day(8)
-            .unwrap()
-            .with_hour(12)
-            .unwrap()
-            .with_minute(0)
-            .unwrap()
-            .with_second(0)
-            .unwrap()
-    }
-
-    fn now_plus_secs(secs: i64) -> chrono::DateTime<chrono::Local> {
-        let date = DateTime::now().date;
-        chrono::DateTime::from_timestamp_millis(date.timestamp_millis() + secs * 1000)
-            .unwrap()
-            .into()
     }
 
     fn date_plus_secs(
@@ -1241,8 +1045,8 @@ mod tests {
 
     #[test]
     fn aggregator_view_works() {
-        let mark_start = Mark::new(&date_plus_secs(date_default(), hours(-2)));
-        let mark_end = Mark::new(&date_plus_secs(date_default(), minutes(-30)));
+        let mark_start = Mark::new(&date_plus_secs(test_utils::date_default(), hours(-2)));
+        let mark_end = Mark::new(&date_plus_secs(test_utils::date_default(), minutes(-30)));
         let mut session_third = Session {
             path: PathBuf::from("sessions"),
             marks: vec![mark_start, mark_end.clone()],
@@ -1253,8 +1057,8 @@ mod tests {
         let mut session_first = Session {
             path: session_third.path.clone(),
             marks: vec![
-                Mark::new(&date_plus_secs(date_default(), days(-12))),
-                Mark::new(&date_plus_secs(date_default(), days(-9))),
+                Mark::new(&date_plus_secs(test_utils::date_default(), days(-12))),
+                Mark::new(&date_plus_secs(test_utils::date_default(), days(-9))),
             ],
         };
         session_first
@@ -1266,8 +1070,8 @@ mod tests {
         let mut session_second = Session {
             path: session_third.path.clone(),
             marks: vec![
-                Mark::new(&date_plus_secs(date_default(), days(-2))),
-                Mark::new(&date_plus_secs(date_default(), days(-1))),
+                Mark::new(&date_plus_secs(test_utils::date_default(), days(-2))),
+                Mark::new(&date_plus_secs(test_utils::date_default(), days(-1))),
             ],
         };
         session_second
@@ -1387,7 +1191,7 @@ mod tests {
             sessions_path: PathBuf::from("sessions"),
         };
         let mut session = Session::new(&config, &DateTime::now());
-        let date = now_plus_secs(30);
+        let date = test_utils::now_plus_secs(30);
         session.marks.push(Mark::new(&date));
         assert_eq!(session.start(), session.marks.first().unwrap().date);
     }
@@ -1403,7 +1207,7 @@ mod tests {
         let mut session = Session::new(&config, &DateTime::now());
         assert_eq!(session.end(), session.marks.last().unwrap().date);
         session.stop(&DateTime::now()).unwrap();
-        session.marks.last_mut().unwrap().date = now_plus_secs(30);
+        session.marks.last_mut().unwrap().date = test_utils::now_plus_secs(30);
         assert_eq!(session.end(), session.marks.last().unwrap().date);
     }
 
@@ -1426,10 +1230,10 @@ mod tests {
     // It ignores `mark_first` and counts to current time, so `mark_second` is the final time.
     #[test]
     fn session_get_time_ignores_marks_if_they_have_label_skip() {
-        let mut mark_first = Mark::new(&now_plus_secs(-3 * 60 * 60));
+        let mut mark_first = Mark::new(&test_utils::now_plus_secs(-3 * 60 * 60));
         mark_first.add_label(&Label::Skip);
-        let mark_second = Mark::new(&now_plus_secs(-54 * 60 - 10)); // 54m 10s
-        let mark_third = Mark::new(&now_plus_secs(-10 * 60));
+        let mark_second = Mark::new(&test_utils::now_plus_secs(-54 * 60 - 10)); // 54m 10s
+        let mark_third = Mark::new(&test_utils::now_plus_secs(-10 * 60));
         let session = Session {
             path: PathBuf::from("sessions"),
             marks: vec![mark_first, mark_second, mark_third],
@@ -1439,8 +1243,8 @@ mod tests {
 
     #[test]
     fn session_get_time_ignores_current_time_if_last_mark_has_label_skip() {
-        let mark_first = Mark::new(&now_plus_secs(-3 * 60 * 60));
-        let mut mark_second = Mark::new(&now_plus_secs(-1 * 60 * 60 - 33 * 60 - 20)); // 1h 33m 20s
+        let mark_first = Mark::new(&test_utils::now_plus_secs(-3 * 60 * 60));
+        let mut mark_second = Mark::new(&test_utils::now_plus_secs(-1 * 60 * 60 - 33 * 60 - 20)); // 1h 33m 20s
         mark_second.add_label(&Label::Skip);
         let session = Session {
             path: PathBuf::from("sessions"),
@@ -1540,7 +1344,7 @@ mod tests {
         let mut session = Session::new(&config, &DateTime::now());
         session.mark(&DateTime::now()).unwrap();
         let clone = session.clone();
-        session.marks.last_mut().unwrap().date = now_plus_secs(30);
+        session.marks.last_mut().unwrap().date = test_utils::now_plus_secs(30);
         assert_ne!(session, clone);
         session.remark(&DateTime::now());
         assert_eq!(session, clone);
@@ -1939,263 +1743,5 @@ mod tests {
         let label = Label::End;
         let as_string = label.to_string();
         assert_eq!(Label::from_string(&as_string).unwrap(), label);
-    }
-
-    #[test]
-    fn date_time_now_works() {
-        let dt = DateTime::now();
-        let date = dt.date;
-        let formatted = dt.to_formatted();
-        let now = chrono::Local::now();
-
-        assert_eq!(date.year(), now.year());
-        assert_eq!(date.month(), now.month());
-        assert_eq!(date.day(), now.day());
-        assert_eq!(date.hour(), now.hour());
-        assert_eq!(date.minute(), now.minute());
-        assert_eq!(date.second(), now.second());
-        assert_eq!(date.nanosecond(), 0);
-        assert_eq!(date.offset(), now.offset());
-
-        assert_eq!(formatted, DateTime::format(&date));
-    }
-
-    #[test]
-    fn date_time_new_works() {
-        let dt = DateTime {
-            date: date_default(),
-        };
-        assert_eq!(DateTime::new(&date_default()), dt);
-    }
-
-    #[test]
-    fn date_time_get_start_of_week_works() {
-        let date = DateTime::get_start_of_week(&date_default());
-        assert_eq!(date.weekday(), chrono::Weekday::Mon);
-        assert_eq!(
-            date,
-            // Will break if date_default changes.
-            date_default()
-                .with_day(&date_default().day() - 2)
-                .unwrap()
-                .with_hour(0)
-                .unwrap()
-        );
-        let time = date.time();
-        assert_eq!(time.hour(), 0);
-        assert_eq!(time.minute(), 0);
-        assert_eq!(time.second(), 0);
-    }
-
-    #[test]
-    fn date_time_get_time_works() {
-        let start = DateTime::now().date.with_minute(2).unwrap();
-        let end = start.with_minute(5).unwrap();
-        let time = DateTime::get_time(&start, &end);
-        assert_eq!(time, 180_000);
-    }
-
-    #[test]
-    fn date_time_get_time_hr_from_milli_works() {
-        let start = DateTime::now()
-            .date
-            .with_year(2000)
-            .unwrap()
-            .with_month(1)
-            .unwrap()
-            .with_day(1)
-            .unwrap()
-            .with_hour(0)
-            .unwrap()
-            .with_minute(0)
-            .unwrap()
-            .with_second(0)
-            .unwrap();
-        let end = start
-            // 7*31*24=5208h
-            // 4*30*24=2880h
-            // 1*29*24=0696h
-            .with_year(2001)
-            .unwrap()
-            // +744h
-            .with_month(2)
-            .unwrap()
-            // +24h
-            .with_day(2)
-            .unwrap()
-            // +2h
-            .with_hour(2)
-            .unwrap()
-            .with_minute(2)
-            .unwrap()
-            .with_second(2)
-            .unwrap();
-        let text = "9554h 2m 2s";
-        let time = DateTime::get_time(&start, &end);
-        assert_eq!(DateTime::get_time_hr_from_milli(time), text);
-    }
-
-    #[test]
-    fn date_time_modify_by_relative_input_works() -> Result<(), &'static str> {
-        assert_eq!(
-            DateTime::now().modify_by_relative_input("2s")?.date,
-            now_plus_secs(2)
-        );
-        assert_eq!(
-            DateTime::now().modify_by_relative_input("2m")?.date,
-            now_plus_secs(2 * 60)
-        );
-        assert_eq!(
-            DateTime::now().modify_by_relative_input("2h")?.date,
-            now_plus_secs(2 * 60 * 60)
-        );
-        assert_eq!(
-            DateTime::now().modify_by_relative_input("-2s")?.date,
-            now_plus_secs(-2)
-        );
-        assert_eq!(
-            DateTime::now().modify_by_relative_input("-2m")?.date,
-            now_plus_secs(-2 * 60)
-        );
-        assert_eq!(
-            DateTime::now().modify_by_relative_input("-2h")?.date,
-            now_plus_secs(-2 * 60 * 60)
-        );
-
-        assert_eq!(
-            DateTime::new(&date_default(),)
-                .modify_by_relative_input("10")?
-                .date,
-            date_default().with_minute(10).unwrap()
-        );
-        assert_eq!(
-            DateTime::new(&date_default())
-                .modify_by_relative_input("-10")?
-                .date,
-            date_default()
-                .with_hour(11)
-                .unwrap()
-                .with_minute(10)
-                .unwrap()
-        );
-        assert_eq!(
-            DateTime::new(&date_default().with_minute(30).unwrap())
-                .modify_by_relative_input("10")?
-                .date,
-            date_default()
-                .with_hour(13)
-                .unwrap()
-                .with_minute(10)
-                .unwrap()
-        );
-        assert_eq!(
-            DateTime::new(&date_default().with_minute(30).unwrap())
-                .modify_by_relative_input("-10")?
-                .date,
-            date_default().with_minute(10).unwrap()
-        );
-        assert_eq!(
-            DateTime::new(&date_default().with_minute(10).unwrap())
-                .modify_by_relative_input("10")?
-                .date,
-            date_default().with_minute(10).unwrap()
-        );
-        assert_eq!(
-            DateTime::new(&date_default().with_minute(10).unwrap())
-                .modify_by_relative_input("-10")?
-                .date,
-            date_default()
-                .with_hour(11)
-                .unwrap()
-                .with_minute(10)
-                .unwrap()
-        );
-        // TODO: Create utils for creating/working with dates. Function that takes hour, minute and
-        // second as parameters and creates the date or even DateTime.
-        assert_eq!(
-            DateTime::new(&date_default())
-                .modify_by_relative_input("-12:00")?
-                .date,
-            date_default().with_day(date_default().day() - 1).unwrap()
-        );
-        assert_eq!(
-            DateTime::new(&date_default())
-                .modify_by_relative_input("12:00")?
-                .date,
-            date_default()
-        );
-        // Sets the time and keeps the day because the time already happened today.
-        assert_eq!(
-            DateTime::new(&date_default())
-                .modify_by_relative_input("-9:02")?
-                .date,
-            date_default().with_hour(9).unwrap().with_minute(2).unwrap()
-        );
-        assert_eq!(
-            DateTime::new(&date_default())
-                .modify_by_relative_input("-09:2")?
-                .date,
-            date_default().with_hour(9).unwrap().with_minute(2).unwrap()
-        );
-        assert_eq!(
-            DateTime::new(&date_default())
-                .modify_by_relative_input("13:15")?
-                .date,
-            date_default()
-                .with_hour(13)
-                .unwrap()
-                .with_minute(15)
-                .unwrap()
-        );
-        // Sets the time and day because the time hasn't happened today yet.
-        assert_eq!(
-            DateTime::new(&date_default())
-                .modify_by_relative_input("9:02")?
-                .date,
-            date_default()
-                .with_day(date_default().day() + 1)
-                .unwrap()
-                .with_hour(9)
-                .unwrap()
-                .with_minute(2)
-                .unwrap()
-        );
-        assert_eq!(
-            DateTime::new(&date_default())
-                .modify_by_relative_input("-13:15")?
-                .date,
-            date_default()
-                .with_day(date_default().day() - 1)
-                .unwrap()
-                .with_hour(13)
-                .unwrap()
-                .with_minute(15)
-                .unwrap()
-        );
-
-        assert!(DateTime::now().modify_by_relative_input("").is_err());
-        assert!(DateTime::now().modify_by_relative_input("-").is_err());
-        assert!(DateTime::now().modify_by_relative_input("--5").is_err());
-        assert!(DateTime::now().modify_by_relative_input("60").is_err());
-        assert!(DateTime::now().modify_by_relative_input("-60").is_err());
-        assert!(DateTime::now().modify_by_relative_input("60s").is_err());
-        assert!(DateTime::now().modify_by_relative_input("60m").is_err());
-        assert!(DateTime::now().modify_by_relative_input("60h").is_err());
-        assert!(DateTime::now().modify_by_relative_input("-60s").is_err());
-        assert!(DateTime::now().modify_by_relative_input("-60m").is_err());
-        assert!(DateTime::now().modify_by_relative_input("-60h").is_err());
-        assert!(DateTime::now().modify_by_relative_input("--60s").is_err());
-        assert!(DateTime::now().modify_by_relative_input("--60m").is_err());
-        assert!(DateTime::now().modify_by_relative_input("--60h").is_err());
-        assert!(DateTime::now().modify_by_relative_input("12:").is_err());
-        assert!(DateTime::now().modify_by_relative_input(":12").is_err());
-        assert!(DateTime::now()
-            .modify_by_relative_input("12:05:37")
-            .is_err());
-        assert!(DateTime::now().modify_by_relative_input("24:05").is_err());
-        assert!(DateTime::now().modify_by_relative_input("23:60").is_err());
-        assert!(DateTime::now().modify_by_relative_input("--23:40").is_err());
-
-        Ok(())
     }
 }
