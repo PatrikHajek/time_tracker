@@ -484,7 +484,7 @@ impl Label {
 mod tests {
     use super::*;
 
-    use crate::{test_utils, Action};
+    use crate::{testing, Action};
     use chrono::Timelike;
 
     fn get_template(date: &str) -> String {
@@ -499,31 +499,11 @@ mod tests {
         )
     }
 
-    fn date_plus_secs(
-        date: chrono::DateTime<chrono::Local>,
-        secs: i64,
-    ) -> chrono::DateTime<chrono::Local> {
-        chrono::DateTime::from_timestamp_millis(date.timestamp_millis() + secs * 1000)
-            .unwrap()
-            .into()
-    }
-
-    fn minutes(count: i64) -> i64 {
-        count * 60
-    }
-
-    fn hours(count: i64) -> i64 {
-        count * 60 * 60
-    }
-
-    fn days(count: i64) -> i64 {
-        count * 24 * 60 * 60
-    }
-
     #[test]
     fn aggregator_view_works() {
-        let mark_start = Mark::new(&date_plus_secs(test_utils::date_default(), hours(-2)));
-        let mark_end = Mark::new(&date_plus_secs(test_utils::date_default(), minutes(-30)));
+        let date_default = testing::date_default();
+        let mark_start = Mark::new(&DateTime::new(&date_default).plus_hours(-2).date);
+        let mark_end = Mark::new(&DateTime::new(&date_default).plus_minutes(-30).date);
         let mut session_third = Session {
             path: PathBuf::from("sessions"),
             marks: vec![mark_start, mark_end.clone()],
@@ -534,8 +514,8 @@ mod tests {
         let mut session_first = Session {
             path: session_third.path.clone(),
             marks: vec![
-                Mark::new(&date_plus_secs(test_utils::date_default(), days(-12))),
-                Mark::new(&date_plus_secs(test_utils::date_default(), days(-9))),
+                Mark::new(&DateTime::new(&testing::date_default()).plus_days(-12).date),
+                Mark::new(&DateTime::new(&testing::date_default()).plus_days(-9).date),
             ],
         };
         session_first
@@ -547,8 +527,8 @@ mod tests {
         let mut session_second = Session {
             path: session_third.path.clone(),
             marks: vec![
-                Mark::new(&date_plus_secs(test_utils::date_default(), days(-2))),
-                Mark::new(&date_plus_secs(test_utils::date_default(), days(-1))),
+                Mark::new(&DateTime::new(&testing::date_default()).plus_days(-2).date),
+                Mark::new(&DateTime::new(&testing::date_default()).plus_days(-1).date),
             ],
         };
         session_second
@@ -668,7 +648,7 @@ mod tests {
             sessions_path: PathBuf::from("sessions"),
         };
         let mut session = Session::new(&config, &DateTime::now());
-        let date = test_utils::now_plus_secs(30);
+        let date = testing::now_plus_secs(30);
         session.marks.push(Mark::new(&date));
         assert_eq!(session.start(), session.marks.first().unwrap().date);
     }
@@ -684,7 +664,7 @@ mod tests {
         let mut session = Session::new(&config, &DateTime::now());
         assert_eq!(session.end(), session.marks.last().unwrap().date);
         session.stop(&DateTime::now()).unwrap();
-        session.marks.last_mut().unwrap().date = test_utils::now_plus_secs(30);
+        session.marks.last_mut().unwrap().date = testing::now_plus_secs(30);
         assert_eq!(session.end(), session.marks.last().unwrap().date);
     }
 
@@ -707,10 +687,10 @@ mod tests {
     // It ignores `mark_first` and counts to current time, so `mark_second` is the final time.
     #[test]
     fn session_get_time_ignores_marks_if_they_have_label_skip() {
-        let mut mark_first = Mark::new(&test_utils::now_plus_secs(-3 * 60 * 60));
+        let mut mark_first = Mark::new(&testing::now_plus_secs(-3 * 60 * 60));
         mark_first.add_label(&Label::Skip);
-        let mark_second = Mark::new(&test_utils::now_plus_secs(-54 * 60 - 10)); // 54m 10s
-        let mark_third = Mark::new(&test_utils::now_plus_secs(-10 * 60));
+        let mark_second = Mark::new(&testing::now_plus_secs(-54 * 60 - 10)); // 54m 10s
+        let mark_third = Mark::new(&testing::now_plus_secs(-10 * 60));
         let session = Session {
             path: PathBuf::from("sessions"),
             marks: vec![mark_first, mark_second, mark_third],
@@ -720,8 +700,8 @@ mod tests {
 
     #[test]
     fn session_get_time_ignores_current_time_if_last_mark_has_label_skip() {
-        let mark_first = Mark::new(&test_utils::now_plus_secs(-3 * 60 * 60));
-        let mut mark_second = Mark::new(&test_utils::now_plus_secs(-1 * 60 * 60 - 33 * 60 - 20)); // 1h 33m 20s
+        let mark_first = Mark::new(&testing::now_plus_secs(-3 * 60 * 60));
+        let mut mark_second = Mark::new(&testing::now_plus_secs(-1 * 60 * 60 - 33 * 60 - 20)); // 1h 33m 20s
         mark_second.add_label(&Label::Skip);
         let session = Session {
             path: PathBuf::from("sessions"),
@@ -821,7 +801,7 @@ mod tests {
         let mut session = Session::new(&config, &DateTime::now());
         session.mark(&DateTime::now()).unwrap();
         let clone = session.clone();
-        session.marks.last_mut().unwrap().date = test_utils::now_plus_secs(30);
+        session.marks.last_mut().unwrap().date = testing::now_plus_secs(30);
         assert_ne!(session, clone);
         session.remark(&DateTime::now());
         assert_eq!(session, clone);
