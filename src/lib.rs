@@ -11,7 +11,7 @@ mod test_utils;
 // TODO: put all these functions inside Action?
 pub fn run(args: &[String]) -> Result<(), Box<dyn Error>> {
     let config = Config::build(&args).map_err(|err| format!("Problem parsing arguments: {err}"))?;
-    let result = match config.action {
+    let out = match config.action {
         Action::Start { .. } => start(&config),
         Action::Stop { .. } => stop(&config),
         Action::Mark { .. } => mark(&config),
@@ -22,8 +22,9 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn Error>> {
         Action::Unlabel { .. } => unlabel(&config),
         Action::Write { .. } => write(&config),
         Action::Version => Ok(version()),
-    };
-    Ok(result?)
+    }
+    .map_err(|err| format!("Application error: {err}"))?;
+    Ok(out)
 }
 
 fn start(config: &Config) -> Result<(), Box<dyn Error>> {
