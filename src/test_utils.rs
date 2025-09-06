@@ -1,5 +1,5 @@
-use chrono::{Datelike, Timelike};
 use crate::date_time::DateTime;
+use chrono::{Datelike, Timelike};
 
 /// Returns `2002:05:05T12:00:00` with your local timezone. The day is a Wednesday.
 pub fn date_default() -> chrono::DateTime<chrono::Local> {

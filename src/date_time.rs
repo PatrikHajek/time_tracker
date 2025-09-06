@@ -371,13 +371,21 @@ mod tests {
             DateTime::new(&test_utils::date_default())
                 .modify_by_relative_input("-9:02")?
                 .date,
-            test_utils::date_default().with_hour(9).unwrap().with_minute(2).unwrap()
+            test_utils::date_default()
+                .with_hour(9)
+                .unwrap()
+                .with_minute(2)
+                .unwrap()
         );
         assert_eq!(
             DateTime::new(&test_utils::date_default())
                 .modify_by_relative_input("-09:2")?
                 .date,
-            test_utils::date_default().with_hour(9).unwrap().with_minute(2).unwrap()
+            test_utils::date_default()
+                .with_hour(9)
+                .unwrap()
+                .with_minute(2)
+                .unwrap()
         );
         assert_eq!(
             DateTime::new(&test_utils::date_default())
