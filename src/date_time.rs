@@ -202,7 +202,7 @@ impl DateTime {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils;
+    use crate::testing;
 
     #[test]
     fn date_time_now_works() {
@@ -226,49 +226,49 @@ mod tests {
     #[test]
     fn date_time_new_works() {
         let dt = DateTime {
-            date: test_utils::date_default(),
+            date: testing::date_default(),
         };
-        assert_eq!(DateTime::new(&test_utils::date_default()), dt);
+        assert_eq!(DateTime::new(&testing::date_default()), dt);
     }
 
     #[test]
     fn date_time_plus_milli_works() {
         fn date_default_plus_milli(milli: i64) -> chrono::DateTime<chrono::Local> {
-            let date_default = test_utils::date_default();
+            let date_default = testing::date_default();
             chrono::DateTime::from_timestamp_millis(date_default.timestamp_millis() + milli)
                 .unwrap()
                 .into()
         }
 
         assert_eq!(
-            DateTime::new(&test_utils::date_default()).plus_milli(500),
+            DateTime::new(&testing::date_default()).plus_milli(500),
             DateTime::new(&date_default_plus_milli(500))
         );
         assert_eq!(
-            DateTime::new(&test_utils::date_default()).plus_milli(500_000_000_000),
+            DateTime::new(&testing::date_default()).plus_milli(500_000_000_000),
             DateTime::new(&date_default_plus_milli(500_000_000_000))
         );
         assert_eq!(
-            DateTime::new(&test_utils::date_default()).plus_milli(0),
+            DateTime::new(&testing::date_default()).plus_milli(0),
             DateTime::new(&date_default_plus_milli(0))
         );
         assert_eq!(
-            DateTime::new(&test_utils::date_default()).plus_milli(-0),
+            DateTime::new(&testing::date_default()).plus_milli(-0),
             DateTime::new(&date_default_plus_milli(-0))
         );
         assert_eq!(
-            DateTime::new(&test_utils::date_default()).plus_milli(-300),
+            DateTime::new(&testing::date_default()).plus_milli(-300),
             DateTime::new(&date_default_plus_milli(-300))
         );
         assert_eq!(
-            DateTime::new(&test_utils::date_default()).plus_milli(-300_000_000),
+            DateTime::new(&testing::date_default()).plus_milli(-300_000_000),
             DateTime::new(&date_default_plus_milli(-300_000_000))
         );
     }
 
     #[test]
     fn date_time_plus_seconds_works() {
-        let date_default = test_utils::date_default();
+        let date_default = testing::date_default();
         assert_eq!(
             DateTime::new(&date_default).plus_seconds(15),
             DateTime::new(&date_default).plus_milli(15 * 1000)
@@ -289,7 +289,7 @@ mod tests {
 
     #[test]
     fn date_time_plus_minutes_works() {
-        let date_default = test_utils::date_default();
+        let date_default = testing::date_default();
         assert_eq!(
             DateTime::new(&date_default).plus_minutes(15),
             DateTime::new(&date_default).plus_milli(15 * 60 * 1000)
@@ -310,7 +310,7 @@ mod tests {
 
     #[test]
     fn date_time_plus_hours_works() {
-        let date_default = test_utils::date_default();
+        let date_default = testing::date_default();
         assert_eq!(
             DateTime::new(&date_default).plus_hours(15),
             DateTime::new(&date_default).plus_milli(15 * 60 * 60 * 1000)
@@ -331,7 +331,7 @@ mod tests {
 
     #[test]
     fn date_time_plus_days_works() {
-        let date_default = test_utils::date_default();
+        let date_default = testing::date_default();
         assert_eq!(
             DateTime::new(&date_default).plus_days(15),
             DateTime::new(&date_default).plus_milli(15 * 24 * 60 * 60 * 1000)
@@ -352,13 +352,13 @@ mod tests {
 
     #[test]
     fn date_time_get_start_of_week_works() {
-        let date = DateTime::get_start_of_week(&test_utils::date_default());
+        let date = DateTime::get_start_of_week(&testing::date_default());
         assert_eq!(date.weekday(), chrono::Weekday::Mon);
         assert_eq!(
             date,
             // Will break if date_default changes.
-            test_utils::date_default()
-                .with_day(&test_utils::date_default().day() - 2)
+            testing::date_default()
+                .with_day(&testing::date_default().day() - 2)
                 .unwrap()
                 .with_hour(0)
                 .unwrap()
@@ -421,72 +421,72 @@ mod tests {
     fn date_time_modify_by_relative_input_works() -> Result<(), &'static str> {
         assert_eq!(
             DateTime::now().modify_by_relative_input("2s")?.date,
-            test_utils::now_plus_secs(2)
+            testing::now_plus_secs(2)
         );
         assert_eq!(
             DateTime::now().modify_by_relative_input("2m")?.date,
-            test_utils::now_plus_secs(2 * 60)
+            testing::now_plus_secs(2 * 60)
         );
         assert_eq!(
             DateTime::now().modify_by_relative_input("2h")?.date,
-            test_utils::now_plus_secs(2 * 60 * 60)
+            testing::now_plus_secs(2 * 60 * 60)
         );
         assert_eq!(
             DateTime::now().modify_by_relative_input("-2s")?.date,
-            test_utils::now_plus_secs(-2)
+            testing::now_plus_secs(-2)
         );
         assert_eq!(
             DateTime::now().modify_by_relative_input("-2m")?.date,
-            test_utils::now_plus_secs(-2 * 60)
+            testing::now_plus_secs(-2 * 60)
         );
         assert_eq!(
             DateTime::now().modify_by_relative_input("-2h")?.date,
-            test_utils::now_plus_secs(-2 * 60 * 60)
+            testing::now_plus_secs(-2 * 60 * 60)
         );
 
         assert_eq!(
-            DateTime::new(&test_utils::date_default(),)
+            DateTime::new(&testing::date_default(),)
                 .modify_by_relative_input("10")?
                 .date,
-            test_utils::date_default().with_minute(10).unwrap()
+            testing::date_default().with_minute(10).unwrap()
         );
         assert_eq!(
-            DateTime::new(&test_utils::date_default())
+            DateTime::new(&testing::date_default())
                 .modify_by_relative_input("-10")?
                 .date,
-            test_utils::date_default()
+            testing::date_default()
                 .with_hour(11)
                 .unwrap()
                 .with_minute(10)
                 .unwrap()
         );
         assert_eq!(
-            DateTime::new(&test_utils::date_default().with_minute(30).unwrap())
+            DateTime::new(&testing::date_default().with_minute(30).unwrap())
                 .modify_by_relative_input("10")?
                 .date,
-            test_utils::date_default()
+            testing::date_default()
                 .with_hour(13)
                 .unwrap()
                 .with_minute(10)
                 .unwrap()
         );
         assert_eq!(
-            DateTime::new(&test_utils::date_default().with_minute(30).unwrap())
+            DateTime::new(&testing::date_default().with_minute(30).unwrap())
                 .modify_by_relative_input("-10")?
                 .date,
-            test_utils::date_default().with_minute(10).unwrap()
+            testing::date_default().with_minute(10).unwrap()
         );
         assert_eq!(
-            DateTime::new(&test_utils::date_default().with_minute(10).unwrap())
+            DateTime::new(&testing::date_default().with_minute(10).unwrap())
                 .modify_by_relative_input("10")?
                 .date,
-            test_utils::date_default().with_minute(10).unwrap()
+            testing::date_default().with_minute(10).unwrap()
         );
         assert_eq!(
-            DateTime::new(&test_utils::date_default().with_minute(10).unwrap())
+            DateTime::new(&testing::date_default().with_minute(10).unwrap())
                 .modify_by_relative_input("-10")?
                 .date,
-            test_utils::date_default()
+            testing::date_default()
                 .with_hour(11)
                 .unwrap()
                 .with_minute(10)
@@ -495,45 +495,45 @@ mod tests {
         // TODO: Create utils for creating/working with dates. Function that takes hour, minute and
         // second as parameters and creates the date or even DateTime.
         assert_eq!(
-            DateTime::new(&test_utils::date_default())
+            DateTime::new(&testing::date_default())
                 .modify_by_relative_input("-12:00")?
                 .date,
-            test_utils::date_default()
-                .with_day(test_utils::date_default().day() - 1)
+            testing::date_default()
+                .with_day(testing::date_default().day() - 1)
                 .unwrap()
         );
         assert_eq!(
-            DateTime::new(&test_utils::date_default())
+            DateTime::new(&testing::date_default())
                 .modify_by_relative_input("12:00")?
                 .date,
-            test_utils::date_default()
+            testing::date_default()
         );
         // Sets the time and keeps the day because the time already happened today.
         assert_eq!(
-            DateTime::new(&test_utils::date_default())
+            DateTime::new(&testing::date_default())
                 .modify_by_relative_input("-9:02")?
                 .date,
-            test_utils::date_default()
+            testing::date_default()
                 .with_hour(9)
                 .unwrap()
                 .with_minute(2)
                 .unwrap()
         );
         assert_eq!(
-            DateTime::new(&test_utils::date_default())
+            DateTime::new(&testing::date_default())
                 .modify_by_relative_input("-09:2")?
                 .date,
-            test_utils::date_default()
+            testing::date_default()
                 .with_hour(9)
                 .unwrap()
                 .with_minute(2)
                 .unwrap()
         );
         assert_eq!(
-            DateTime::new(&test_utils::date_default())
+            DateTime::new(&testing::date_default())
                 .modify_by_relative_input("13:15")?
                 .date,
-            test_utils::date_default()
+            testing::date_default()
                 .with_hour(13)
                 .unwrap()
                 .with_minute(15)
@@ -541,11 +541,11 @@ mod tests {
         );
         // Sets the time and day because the time hasn't happened today yet.
         assert_eq!(
-            DateTime::new(&test_utils::date_default())
+            DateTime::new(&testing::date_default())
                 .modify_by_relative_input("9:02")?
                 .date,
-            test_utils::date_default()
-                .with_day(test_utils::date_default().day() + 1)
+            testing::date_default()
+                .with_day(testing::date_default().day() + 1)
                 .unwrap()
                 .with_hour(9)
                 .unwrap()
@@ -553,11 +553,11 @@ mod tests {
                 .unwrap()
         );
         assert_eq!(
-            DateTime::new(&test_utils::date_default())
+            DateTime::new(&testing::date_default())
                 .modify_by_relative_input("-13:15")?
                 .date,
-            test_utils::date_default()
-                .with_day(test_utils::date_default().day() - 1)
+            testing::date_default()
+                .with_day(testing::date_default().day() - 1)
                 .unwrap()
                 .with_hour(13)
                 .unwrap()

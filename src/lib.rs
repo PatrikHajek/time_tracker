@@ -6,7 +6,7 @@ mod config;
 mod date_time;
 mod session;
 #[cfg(test)]
-mod test_utils;
+mod testing;
 
 // TODO: put all these functions inside Action?
 pub fn run(args: &[String]) -> Result<(), Box<dyn Error>> {
