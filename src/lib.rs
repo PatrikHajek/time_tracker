@@ -13,6 +13,7 @@ const CONFIG_SESSIONS_PATH: &str = "sessions_path";
 
 #[derive(PartialEq, Debug)]
 pub struct Config {
+    // TODO: Remove, instead pass the actual values stored in the Action to the functions.
     action: Action,
     sessions_path: PathBuf,
 }
