@@ -1,3 +1,4 @@
+use crate::date_time::DateTime;
 use std::{
     collections::HashSet,
     env,
@@ -7,8 +8,6 @@ use std::{
     process::Command,
     str::FromStr,
 };
-
-use crate::date_time::DateTime;
 
 mod date_time;
 #[cfg(test)]
