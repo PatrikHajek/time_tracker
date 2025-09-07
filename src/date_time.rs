@@ -418,79 +418,26 @@ mod tests {
     #[test]
     fn date_time_modify_by_relative_input_works() -> Result<(), &'static str> {
         let date = testing::date_default();
+        let dt = DateTime::new(&date);
 
-        assert_eq!(
-            DateTime::new(&date).modify_by_relative_input("2s")?,
-            DateTime::new(&date).plus_seconds(2)
-        );
-        assert_eq!(
-            DateTime::new(&date).modify_by_relative_input("-2s")?,
-            DateTime::new(&date).plus_seconds(-2)
-        );
-        assert_eq!(
-            DateTime::new(&date).modify_by_relative_input("60s")?,
-            DateTime::new(&date).plus_seconds(60)
-        );
-        assert_eq!(
-            DateTime::new(&date).modify_by_relative_input("-60s")?,
-            DateTime::new(&date).plus_seconds(-60)
-        );
-        assert_eq!(
-            DateTime::new(&date).modify_by_relative_input("--15s")?,
-            DateTime::new(&date).plus_seconds(15)
-        );
-        assert_eq!(
-            DateTime::new(&date).modify_by_relative_input("+15s")?,
-            DateTime::new(&date).plus_seconds(15)
-        );
-        assert_eq!(
-            DateTime::new(&date).modify_by_relative_input("2m")?,
-            DateTime::new(&date).plus_minutes(2)
-        );
-        assert_eq!(
-            DateTime::new(&date).modify_by_relative_input("-2m")?,
-            DateTime::new(&date).plus_minutes(-2)
-        );
-        assert_eq!(
-            DateTime::new(&date).modify_by_relative_input("60m")?,
-            DateTime::new(&date).plus_minutes(60)
-        );
-        assert_eq!(
-            DateTime::new(&date).modify_by_relative_input("-60m")?,
-            DateTime::new(&date).plus_minutes(-60)
-        );
-        assert_eq!(
-            DateTime::new(&date).modify_by_relative_input("--15m")?,
-            DateTime::new(&date).plus_minutes(15)
-        );
-        assert_eq!(
-            DateTime::new(&date).modify_by_relative_input("+15m")?,
-            DateTime::new(&date).plus_minutes(15)
-        );
-        assert_eq!(
-            DateTime::new(&date).modify_by_relative_input("2h")?,
-            DateTime::new(&date).plus_hours(2)
-        );
-        assert_eq!(
-            DateTime::new(&date).modify_by_relative_input("-2h")?,
-            DateTime::new(&date).plus_hours(-2)
-        );
-        assert_eq!(
-            DateTime::new(&date).modify_by_relative_input("60h")?,
-            DateTime::new(&date).plus_hours(60)
-        );
-        assert_eq!(
-            DateTime::new(&date).modify_by_relative_input("-60h")?,
-            DateTime::new(&date).plus_hours(-60)
-        );
-        assert_eq!(
-            DateTime::new(&date).modify_by_relative_input("--15h")?,
-            DateTime::new(&date).plus_hours(15)
-        );
-        assert_eq!(
-            DateTime::new(&date).modify_by_relative_input("+15h")?,
-            DateTime::new(&date).plus_hours(15)
-        );
+        assert_eq!(dt.modify_by_relative_input("2s")?, dt.plus_seconds(2));
+        assert_eq!(dt.modify_by_relative_input("-2s")?, dt.plus_seconds(-2));
+        assert_eq!(dt.modify_by_relative_input("60s")?, dt.plus_seconds(60));
+        assert_eq!(dt.modify_by_relative_input("-60s")?, dt.plus_seconds(-60));
+        assert_eq!(dt.modify_by_relative_input("--15s")?, dt.plus_seconds(15));
+        assert_eq!(dt.modify_by_relative_input("+15s")?, dt.plus_seconds(15));
+        assert_eq!(dt.modify_by_relative_input("2m")?, dt.plus_minutes(2));
+        assert_eq!(dt.modify_by_relative_input("-2m")?, dt.plus_minutes(-2));
+        assert_eq!(dt.modify_by_relative_input("60m")?, dt.plus_minutes(60));
+        assert_eq!(dt.modify_by_relative_input("-60m")?, dt.plus_minutes(-60));
+        assert_eq!(dt.modify_by_relative_input("--15m")?, dt.plus_minutes(15));
+        assert_eq!(dt.modify_by_relative_input("+15m")?, dt.plus_minutes(15));
+        assert_eq!(dt.modify_by_relative_input("2h")?, dt.plus_hours(2));
+        assert_eq!(dt.modify_by_relative_input("-2h")?, dt.plus_hours(-2));
+        assert_eq!(dt.modify_by_relative_input("60h")?, dt.plus_hours(60));
+        assert_eq!(dt.modify_by_relative_input("-60h")?, dt.plus_hours(-60));
+        assert_eq!(dt.modify_by_relative_input("--15h")?, dt.plus_hours(15));
+        assert_eq!(dt.modify_by_relative_input("+15h")?, dt.plus_hours(15));
 
         assert_eq!(
             DateTime::new(&testing::date_default(),)
@@ -613,7 +560,6 @@ mod tests {
                 .unwrap()
         );
 
-        let dt = DateTime::new(&date);
         assert!(dt.modify_by_relative_input("").is_err());
         assert!(dt.modify_by_relative_input("-").is_err());
         assert!(dt.modify_by_relative_input("--5").is_err());
