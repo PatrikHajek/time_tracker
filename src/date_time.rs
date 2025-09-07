@@ -423,29 +423,30 @@ mod tests {
 
     #[test]
     fn date_time_modify_by_relative_input_works() -> Result<(), &'static str> {
+        let date = testing::date_default();
         assert_eq!(
-            DateTime::now().modify_by_relative_input("2s")?.date,
-            testing::now_plus_secs(2)
+            DateTime::new(&date).modify_by_relative_input("2s")?,
+            DateTime::new(&date).plus_seconds(2)
         );
         assert_eq!(
-            DateTime::now().modify_by_relative_input("2m")?.date,
-            testing::now_plus_secs(2 * 60)
+            DateTime::new(&date).modify_by_relative_input("2m")?,
+            DateTime::new(&date).plus_minutes(2)
         );
         assert_eq!(
-            DateTime::now().modify_by_relative_input("2h")?.date,
-            testing::now_plus_secs(2 * 60 * 60)
+            DateTime::new(&date).modify_by_relative_input("2h")?,
+            DateTime::new(&date).plus_hours(2)
         );
         assert_eq!(
-            DateTime::now().modify_by_relative_input("-2s")?.date,
-            testing::now_plus_secs(-2)
+            DateTime::new(&date).modify_by_relative_input("-2s")?,
+            DateTime::new(&date).plus_seconds(-2)
         );
         assert_eq!(
-            DateTime::now().modify_by_relative_input("-2m")?.date,
-            testing::now_plus_secs(-2 * 60)
+            DateTime::new(&date).modify_by_relative_input("-2m")?,
+            DateTime::new(&date).plus_minutes(-2)
         );
         assert_eq!(
-            DateTime::now().modify_by_relative_input("-2h")?.date,
-            testing::now_plus_secs(-2 * 60 * 60)
+            DateTime::new(&date).modify_by_relative_input("-2h")?,
+            DateTime::new(&date).plus_hours(-2)
         );
 
         assert_eq!(
