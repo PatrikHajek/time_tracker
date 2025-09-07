@@ -114,22 +114,18 @@ impl DateTime {
         }
 
         if text.ends_with("h") || text.ends_with("m") || text.ends_with("s") {
-            let mut time = text[0..text.len() - 1]
+            let time = text[0..text.len() - 1]
                 .parse::<i64>()
                 .map_err(|_e| ())
                 .and_then(|v| if v >= 0 && v < 60 { Ok(v) } else { Err(()) })
                 .map_err(|_e| "failed to parse provided text")?;
-            let power = match text.chars().last().unwrap() {
-                's' => 0,
-                'm' => 1,
-                'h' => 2,
+            let out = match text.chars().last().unwrap() {
+                's' => self.plus_seconds(sign * time),
+                'm' => self.plus_minutes(sign * time),
+                'h' => self.plus_hours(sign * time),
                 _ => panic!("no other option possible in this conditional"),
             };
-            time = sign * time * i64::pow(60, power) * 1000;
-            let date = chrono::DateTime::from_timestamp_millis(self.date.timestamp_millis() + time)
-                .unwrap()
-                .into();
-            return Ok(DateTime { date });
+            return Ok(out);
         }
 
         const SEPARATOR: &str = ":";
