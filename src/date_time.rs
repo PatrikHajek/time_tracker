@@ -425,20 +425,20 @@ mod tests {
             DateTime::new(&date).plus_seconds(2)
         );
         assert_eq!(
-            DateTime::new(&date).modify_by_relative_input("2m")?,
-            DateTime::new(&date).plus_minutes(2)
-        );
-        assert_eq!(
-            DateTime::new(&date).modify_by_relative_input("2h")?,
-            DateTime::new(&date).plus_hours(2)
-        );
-        assert_eq!(
             DateTime::new(&date).modify_by_relative_input("-2s")?,
             DateTime::new(&date).plus_seconds(-2)
         );
         assert_eq!(
+            DateTime::new(&date).modify_by_relative_input("2m")?,
+            DateTime::new(&date).plus_minutes(2)
+        );
+        assert_eq!(
             DateTime::new(&date).modify_by_relative_input("-2m")?,
             DateTime::new(&date).plus_minutes(-2)
+        );
+        assert_eq!(
+            DateTime::new(&date).modify_by_relative_input("2h")?,
+            DateTime::new(&date).plus_hours(2)
         );
         assert_eq!(
             DateTime::new(&date).modify_by_relative_input("-2h")?,
