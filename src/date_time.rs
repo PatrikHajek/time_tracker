@@ -116,8 +116,6 @@ impl DateTime {
         if text.ends_with("h") || text.ends_with("m") || text.ends_with("s") {
             let time = text[0..text.len() - 1]
                 .parse::<i64>()
-                .map_err(|_e| ())
-                .and_then(|v| if v >= 0 && v < 60 { Ok(v) } else { Err(()) })
                 .map_err(|_e| "failed to parse provided text")?;
             let out = match text.chars().last().unwrap() {
                 's' => self.plus_seconds(sign * time),
@@ -430,6 +428,22 @@ mod tests {
             DateTime::new(&date).plus_seconds(-2)
         );
         assert_eq!(
+            DateTime::new(&date).modify_by_relative_input("60s")?,
+            DateTime::new(&date).plus_seconds(60)
+        );
+        assert_eq!(
+            DateTime::new(&date).modify_by_relative_input("-60s")?,
+            DateTime::new(&date).plus_seconds(-60)
+        );
+        assert_eq!(
+            DateTime::new(&date).modify_by_relative_input("--15s")?,
+            DateTime::new(&date).plus_seconds(15)
+        );
+        assert_eq!(
+            DateTime::new(&date).modify_by_relative_input("+15s")?,
+            DateTime::new(&date).plus_seconds(15)
+        );
+        assert_eq!(
             DateTime::new(&date).modify_by_relative_input("2m")?,
             DateTime::new(&date).plus_minutes(2)
         );
@@ -438,12 +452,44 @@ mod tests {
             DateTime::new(&date).plus_minutes(-2)
         );
         assert_eq!(
+            DateTime::new(&date).modify_by_relative_input("60m")?,
+            DateTime::new(&date).plus_minutes(60)
+        );
+        assert_eq!(
+            DateTime::new(&date).modify_by_relative_input("-60m")?,
+            DateTime::new(&date).plus_minutes(-60)
+        );
+        assert_eq!(
+            DateTime::new(&date).modify_by_relative_input("--15m")?,
+            DateTime::new(&date).plus_minutes(15)
+        );
+        assert_eq!(
+            DateTime::new(&date).modify_by_relative_input("+15m")?,
+            DateTime::new(&date).plus_minutes(15)
+        );
+        assert_eq!(
             DateTime::new(&date).modify_by_relative_input("2h")?,
             DateTime::new(&date).plus_hours(2)
         );
         assert_eq!(
             DateTime::new(&date).modify_by_relative_input("-2h")?,
             DateTime::new(&date).plus_hours(-2)
+        );
+        assert_eq!(
+            DateTime::new(&date).modify_by_relative_input("60h")?,
+            DateTime::new(&date).plus_hours(60)
+        );
+        assert_eq!(
+            DateTime::new(&date).modify_by_relative_input("-60h")?,
+            DateTime::new(&date).plus_hours(-60)
+        );
+        assert_eq!(
+            DateTime::new(&date).modify_by_relative_input("--15h")?,
+            DateTime::new(&date).plus_hours(15)
+        );
+        assert_eq!(
+            DateTime::new(&date).modify_by_relative_input("+15h")?,
+            DateTime::new(&date).plus_hours(15)
         );
 
         assert_eq!(
@@ -572,15 +618,6 @@ mod tests {
         assert!(DateTime::now().modify_by_relative_input("--5").is_err());
         assert!(DateTime::now().modify_by_relative_input("60").is_err());
         assert!(DateTime::now().modify_by_relative_input("-60").is_err());
-        assert!(DateTime::now().modify_by_relative_input("60s").is_err());
-        assert!(DateTime::now().modify_by_relative_input("60m").is_err());
-        assert!(DateTime::now().modify_by_relative_input("60h").is_err());
-        assert!(DateTime::now().modify_by_relative_input("-60s").is_err());
-        assert!(DateTime::now().modify_by_relative_input("-60m").is_err());
-        assert!(DateTime::now().modify_by_relative_input("-60h").is_err());
-        assert!(DateTime::now().modify_by_relative_input("--60s").is_err());
-        assert!(DateTime::now().modify_by_relative_input("--60m").is_err());
-        assert!(DateTime::now().modify_by_relative_input("--60h").is_err());
         assert!(DateTime::now().modify_by_relative_input("12:").is_err());
         assert!(DateTime::now().modify_by_relative_input(":12").is_err());
         assert!(DateTime::now()
