@@ -420,6 +420,7 @@ mod tests {
     #[test]
     fn date_time_modify_by_relative_input_works() -> Result<(), &'static str> {
         let date = testing::date_default();
+
         assert_eq!(
             DateTime::new(&date).modify_by_relative_input("2s")?,
             DateTime::new(&date).plus_seconds(2)
