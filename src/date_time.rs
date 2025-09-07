@@ -123,7 +123,7 @@ impl DateTime {
                 's' => 0,
                 'm' => 1,
                 'h' => 2,
-                _ => panic!("not other option possible in this conditional"),
+                _ => panic!("no other option possible in this conditional"),
             };
             time = sign * time * i64::pow(60, power) * 1000;
             let date = chrono::DateTime::from_timestamp_millis(self.date.timestamp_millis() + time)
