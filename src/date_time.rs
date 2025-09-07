@@ -112,6 +112,8 @@ impl DateTime {
             text = &text[1..];
             sign = -1;
         }
+        let text = text;
+        let sign = sign;
 
         if text.ends_with("h") || text.ends_with("m") || text.ends_with("s") {
             let time = text[0..text.len() - 1]
