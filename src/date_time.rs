@@ -107,7 +107,7 @@ impl DateTime {
     // TODO: Refactor.
     pub fn modify_by_relative_input(&self, text: &str) -> Result<Self, &'static str> {
         let mut text = text.trim();
-        let mut sign = 1;
+        let mut sign: i64 = 1;
         if text.starts_with("-") {
             text = &text[1..];
             sign = -1;
@@ -116,9 +116,10 @@ impl DateTime {
         let sign = sign;
 
         if text.ends_with("h") || text.ends_with("m") || text.ends_with("s") {
-            let time = text[0..text.len() - 1]
-                .parse::<i64>()
-                .map_err(|_e| "failed to parse provided text")?;
+            let time: i64 = text[0..text.len() - 1]
+                .parse::<u32>()
+                .map_err(|_e| "failed to parse provided text")?
+                .into();
             let out = match text.chars().last().unwrap() {
                 's' => self.plus_seconds(sign * time),
                 'm' => self.plus_minutes(sign * time),
@@ -426,19 +427,16 @@ mod tests {
         assert_eq!(dt.modify_by_relative_input("-2s")?, dt.plus_seconds(-2));
         assert_eq!(dt.modify_by_relative_input("60s")?, dt.plus_seconds(60));
         assert_eq!(dt.modify_by_relative_input("-60s")?, dt.plus_seconds(-60));
-        assert_eq!(dt.modify_by_relative_input("--15s")?, dt.plus_seconds(15));
         assert_eq!(dt.modify_by_relative_input("+15s")?, dt.plus_seconds(15));
         assert_eq!(dt.modify_by_relative_input("2m")?, dt.plus_minutes(2));
         assert_eq!(dt.modify_by_relative_input("-2m")?, dt.plus_minutes(-2));
         assert_eq!(dt.modify_by_relative_input("60m")?, dt.plus_minutes(60));
         assert_eq!(dt.modify_by_relative_input("-60m")?, dt.plus_minutes(-60));
-        assert_eq!(dt.modify_by_relative_input("--15m")?, dt.plus_minutes(15));
         assert_eq!(dt.modify_by_relative_input("+15m")?, dt.plus_minutes(15));
         assert_eq!(dt.modify_by_relative_input("2h")?, dt.plus_hours(2));
         assert_eq!(dt.modify_by_relative_input("-2h")?, dt.plus_hours(-2));
         assert_eq!(dt.modify_by_relative_input("60h")?, dt.plus_hours(60));
         assert_eq!(dt.modify_by_relative_input("-60h")?, dt.plus_hours(-60));
-        assert_eq!(dt.modify_by_relative_input("--15h")?, dt.plus_hours(15));
         assert_eq!(dt.modify_by_relative_input("+15h")?, dt.plus_hours(15));
 
         assert_eq!(
@@ -565,6 +563,9 @@ mod tests {
         assert!(dt.modify_by_relative_input("").is_err());
         assert!(dt.modify_by_relative_input("-").is_err());
         assert!(dt.modify_by_relative_input("--5").is_err());
+        assert!(dt.modify_by_relative_input("--5s").is_err());
+        assert!(dt.modify_by_relative_input("--5m").is_err());
+        assert!(dt.modify_by_relative_input("--5h").is_err());
         assert!(dt.modify_by_relative_input("60").is_err());
         assert!(dt.modify_by_relative_input("-60").is_err());
         assert!(dt.modify_by_relative_input("12:").is_err());
