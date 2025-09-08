@@ -121,7 +121,7 @@ impl DateTime {
         if text.ends_with("h") || text.ends_with("m") || text.ends_with("s") {
             let time: i64 = text[0..text.len() - 1]
                 .parse::<u32>()
-                .map_err(|_e| "failed to parse provided text")?
+                .map_err(|_e| "invalid time")?
                 .into();
             let out = match text.chars().last().unwrap() {
                 's' => self.plus_seconds(sign * time),
@@ -144,14 +144,14 @@ impl DateTime {
                 .expect("should contain exactly one colon");
             let hour = text[0..colon_index]
                 .parse::<u32>()
-                .map_err(|_e| ())
-                .and_then(|v| if v < 24 { Ok(v) } else { Err(()) })
-                .map_err(|_e| "failed to parse hour")?;
+                .map_err(|_e| "invalid hour")
+                .and_then(|v| if v < 24 { Ok(v) } else { Err("") })
+                .map_err(|_e| "hour must be less than 24")?;
             let minute = text[colon_index + 1..text.len()]
                 .parse::<u32>()
-                .map_err(|_e| ())
-                .and_then(|v| if v < 60 { Ok(v) } else { Err(()) })
-                .map_err(|_e| "failed to parse minute")?;
+                .map_err(|_e| "invalid minute")
+                .and_then(|v| if v < 60 { Ok(v) } else { Err("") })
+                .map_err(|_e| "minute must be less than 60")?;
 
             let date_parsed = self
                 .date
@@ -174,8 +174,9 @@ impl DateTime {
         }
 
         text.parse::<u32>()
-            .map_err(|_e| ())
-            .and_then(|v| if v < 60 { Ok(v) } else { Err(()) })
+            .map_err(|_e| "invalid minute")
+            .and_then(|v| if v < 60 { Ok(v) } else { Err("") })
+            .map_err(|_e| "minute must be less than 60")
             .map(|v| {
                 let date_parsed = self.date.with_minute(v).unwrap();
                 let difference = date_parsed.timestamp_millis() - self.date.timestamp_millis();
@@ -190,7 +191,7 @@ impl DateTime {
                     return DateTime::new(&date_parsed).plus_hours(sign);
                 }
             })
-            .map_err(|_e| "failed to parse provided text")
+            .map_err(|_e| "failed to parse provided time")
     }
 }
 
