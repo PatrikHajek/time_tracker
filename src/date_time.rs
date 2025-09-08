@@ -108,6 +108,9 @@ impl DateTime {
     pub fn modify_by_relative_input(&self, text: &str) -> Result<Self, &'static str> {
         let mut text = text.trim();
         let mut sign: i64 = 1;
+        if text.starts_with("--") {
+            return Err("time cannot start with `--`");
+        }
         if text.starts_with("-") {
             text = &text[1..];
             sign = -1;
