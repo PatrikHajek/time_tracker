@@ -168,12 +168,8 @@ impl DateTime {
             if is_same_day {
                 return Ok(DateTime { date: date_parsed });
             } else {
-                let out = chrono::DateTime::from_timestamp_millis(
-                    date_parsed.timestamp_millis() + sign * 24 * 60 * 60 * 1000,
-                )
-                .unwrap()
-                .into();
-                return Ok(DateTime { date: out });
+                let date = DateTime::new(&date_parsed).plus_days(sign);
+                return Ok(date);
             }
         }
 
