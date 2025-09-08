@@ -185,16 +185,11 @@ impl DateTime {
                     sign * difference > 0
                 };
                 if is_same_hour {
-                    return date_parsed;
+                    return DateTime { date: date_parsed };
                 } else {
-                    return chrono::DateTime::from_timestamp_millis(
-                        date_parsed.timestamp_millis() + sign * 60 * 60 * 1000,
-                    )
-                    .unwrap()
-                    .into();
+                    return DateTime::new(&date_parsed).plus_hours(sign);
                 }
             })
-            .map(|v| DateTime { date: v })
             .map_err(|_e| "failed to parse provided text")
     }
 }
