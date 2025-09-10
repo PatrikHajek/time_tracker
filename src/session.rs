@@ -386,7 +386,7 @@ impl Mark {
         })
     }
 
-    fn to_string(&self) -> String {
+    pub fn to_string(&self) -> String {
         let mut contents = format!(
             "{MARK_HEADING_PREFIX}{}",
             DateTime::new(&self.date).to_formatted_pretty()
