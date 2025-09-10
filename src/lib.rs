@@ -105,7 +105,7 @@ fn unmark(config: &Config) -> Result<(), Box<dyn Error>> {
     };
     assert_eq!(config.action, Action::Unmark,);
 
-    if let Some(mark) = session.unmark()? {
+    if let Some(mark) = session.unmark() {
         session.save()?;
         println!("Removed last mark:\n{}", mark.to_string());
     } else {

@@ -239,15 +239,13 @@ impl Session {
         mark.date = dt.date;
     }
 
-    pub fn unmark(&mut self) -> Result<Option<Mark>, &'static str> {
-        if !self.is_active() {
-            return Err("can't unmark, session has already ended");
-        } else if self.marks.len() > 1 {
+    pub fn unmark(&mut self) -> Option<Mark> {
+        if self.marks.len() > 1 {
             let mark = self.marks.pop();
             assert!(mark.is_some());
-            return Ok(mark);
+            return mark;
         } else {
-            return Ok(None);
+            return None;
         }
     }
 
@@ -831,7 +829,7 @@ mod tests {
         let mut session = Session::new(&config, &DateTime::now());
 
         assert_eq!(session.marks.len(), 1);
-        assert_eq!(session.unmark().unwrap(), None);
+        assert_eq!(session.unmark(), None);
         assert_eq!(session.marks.len(), 1);
 
         session.mark(&DateTime::now().plus_hours(1)).unwrap();
@@ -840,22 +838,9 @@ mod tests {
         let mark_first = session.marks.first().unwrap().clone();
         let mark_last = session.marks.last().unwrap().clone();
         assert_ne!(mark_first, mark_last);
-        assert_eq!(session.unmark().unwrap(), Some(mark_last));
+        assert_eq!(session.unmark(), Some(mark_last));
         assert_eq!(session.marks.len(), 1);
         assert_eq!(session.marks.last().unwrap(), &mark_first);
-    }
-
-    #[test]
-    fn session_unmark_cannot_work_when_session_ended() {
-        let config = Config {
-            action: Action::Start {
-                date: DateTime::now(),
-            },
-            sessions_path: PathBuf::from("sessions"),
-        };
-        let mut session = Session::new(&config, &DateTime::now());
-        session.stop(&DateTime::now().plus_hours(1)).unwrap();
-        assert!(session.unmark().is_err());
     }
 
     #[test]
