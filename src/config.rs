@@ -77,6 +77,7 @@ pub enum Action {
     Stop { date: DateTime },
     Mark { date: DateTime },
     Remark { date: DateTime },
+    Unmark,
     Path,
     View,
     Label { label: Label },
@@ -125,6 +126,12 @@ impl Action {
                 },
                 _ => return Err("too many arguments")?,
             },
+            "unmark" => {
+                if args.len() != 0 {
+                    return Err("too many arguments")?;
+                }
+                Action::Unmark
+            }
             "path" => {
                 if args.len() != 0 {
                     return Err("too many arguments")?;

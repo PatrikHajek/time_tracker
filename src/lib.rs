@@ -16,6 +16,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn Error>> {
         Action::Stop { .. } => stop(&config),
         Action::Mark { .. } => mark(&config),
         Action::Remark { .. } => remark(&config),
+        Action::Unmark => unmark(&config),
         Action::Path => path(&config),
         Action::View => view(&config),
         Action::Label { .. } => label(&config),
@@ -95,6 +96,21 @@ fn remark(config: &Config) -> Result<(), Box<dyn Error>> {
     session.remark(&date);
     session.save()?;
     println!("Remarked to: {}", &date.to_formatted_time());
+    Ok(())
+}
+
+fn unmark(config: &Config) -> Result<(), Box<dyn Error>> {
+    let Some(mut session) = Session::get_last(&config)? else {
+        return Err("no active session found")?;
+    };
+    assert_eq!(config.action, Action::Unmark,);
+
+    if let Some(mark) = session.unmark()? {
+        session.save()?;
+        println!("Removed last mark:\n{}", mark.to_string());
+    } else {
+        println!("Cannot remove the first mark");
+    }
     Ok(())
 }
 
