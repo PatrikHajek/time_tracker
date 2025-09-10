@@ -239,6 +239,16 @@ impl Session {
         mark.date = dt.date;
     }
 
+    pub fn unmark(&mut self) -> Option<Mark> {
+        if self.marks.len() > 1 {
+            let mark = self.marks.pop();
+            assert!(mark.is_some());
+            return mark;
+        } else {
+            return None;
+        }
+    }
+
     pub fn label(&mut self, label: &Label) -> bool {
         self.marks
             .last_mut()
@@ -386,7 +396,7 @@ impl Mark {
         })
     }
 
-    fn to_string(&self) -> String {
+    pub fn to_string(&self) -> String {
         let mut contents = format!(
             "{MARK_HEADING_PREFIX}{}",
             DateTime::new(&self.date).to_formatted_pretty()
@@ -806,6 +816,31 @@ mod tests {
         assert_ne!(session, clone);
         session.remark(&DateTime::now());
         assert_eq!(session, clone);
+    }
+
+    #[test]
+    fn session_unmark_works() {
+        let config = Config {
+            action: Action::Start {
+                date: DateTime::now(),
+            },
+            sessions_path: PathBuf::from("sessions"),
+        };
+        let mut session = Session::new(&config, &DateTime::now());
+
+        assert_eq!(session.marks.len(), 1);
+        assert_eq!(session.unmark(), None);
+        assert_eq!(session.marks.len(), 1);
+
+        session.mark(&DateTime::now().plus_hours(1)).unwrap();
+        assert_eq!(session.marks.len(), 2);
+
+        let mark_first = session.marks.first().unwrap().clone();
+        let mark_last = session.marks.last().unwrap().clone();
+        assert_ne!(mark_first, mark_last);
+        assert_eq!(session.unmark(), Some(mark_last));
+        assert_eq!(session.marks.len(), 1);
+        assert_eq!(session.marks.last().unwrap(), &mark_first);
     }
 
     #[test]
