@@ -94,7 +94,7 @@ impl Action {
                     date: DateTime::now(),
                 },
                 1 => Action::Start {
-                    date: DateTime::now().modify_by_relative_input(&args[0])?,
+                    date: DateTime::now().modify(&args[0])?,
                 },
                 _ => return Err("too many arguments")?,
             },
@@ -103,7 +103,7 @@ impl Action {
                     date: DateTime::now(),
                 },
                 1 => Action::Stop {
-                    date: DateTime::now().modify_by_relative_input(&args[0])?,
+                    date: DateTime::now().modify(&args[0])?,
                 },
                 _ => return Err("too many arguments")?,
             },
@@ -112,7 +112,7 @@ impl Action {
                     date: DateTime::now(),
                 },
                 1 => Action::Mark {
-                    date: DateTime::now().modify_by_relative_input(&args[0])?,
+                    date: DateTime::now().modify(&args[0])?,
                 },
                 _ => return Err("too many arguments")?,
             },
@@ -121,7 +121,7 @@ impl Action {
                     date: DateTime::now(),
                 },
                 1 => Action::Remark {
-                    date: DateTime::now().modify_by_relative_input(&args[0])?,
+                    date: DateTime::now().modify(&args[0])?,
                 },
                 _ => return Err("too many arguments")?,
             },

@@ -53,6 +53,7 @@ impl Aggregator {
             !(session.marks.len() == 1 && session.marks.last().unwrap().has_label(&Label::End))
         );
 
+        // TODO: Write as many of these as functions in their relevant structs.
         let start = DateTime::new(&session.start()).to_formatted_pretty();
         let start_of_week = DateTime::get_start_of_week(&session.start());
         let week_time = self
