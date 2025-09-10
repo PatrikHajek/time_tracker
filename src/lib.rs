@@ -103,7 +103,7 @@ fn unmark(config: &Config) -> Result<(), Box<dyn Error>> {
     let Some(mut session) = Session::get_last(&config)? else {
         return Err("no active session found")?;
     };
-    assert_eq!(config.action, Action::Unmark,);
+    assert_eq!(config.action, Action::Unmark);
 
     if let Some(mark) = session.unmark() {
         session.save()?;
