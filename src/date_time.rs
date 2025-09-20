@@ -366,6 +366,8 @@ mod tests {
         let dt = DateTime::new(&date);
         assert_eq!(dt.to_formatted_pretty_short(), dt.to_formatted_pretty());
 
+        let date = date.with_day(DateTime::now().date.day()).unwrap();
+
         let dt = DateTime::new(&date.with_month(8).unwrap());
         assert_eq!(dt.to_formatted_pretty_short(), dt.to_formatted_pretty());
 
