@@ -6,14 +6,11 @@ const CONFIG_SESSIONS_PATH: &str = "sessions_path";
 
 #[derive(PartialEq, Debug)]
 pub struct Config {
-    // TODO: Remove, instead pass the actual values stored in the Action to the functions.
-    pub action: Action,
     pub sessions_path: PathBuf,
 }
 
 impl Config {
-    pub fn build(args: &[String]) -> Result<Config, Box<dyn Error>> {
-        let from_args = Config::from_args(&args)?;
+    pub fn build() -> Result<Config, Box<dyn Error>> {
         let path = resolve_path(CONFIG_PATH)?;
         let contents = match fs::read_to_string(&path) {
             Ok(val) => val,
@@ -30,21 +27,7 @@ impl Config {
         };
         let from_file = Config::from_file(&contents)?;
         let config = Config {
-            action: from_args.action,
             sessions_path: from_file.sessions_path,
-        };
-        Ok(config)
-    }
-
-    fn from_args(args: &[String]) -> Result<Config, Box<dyn Error>> {
-        if args.len() < 2 {
-            return Err("not enough arguments")?;
-        }
-
-        let action = Action::build(&args[1], &args[2..])?;
-        let config = Config {
-            action,
-            sessions_path: PathBuf::from(""),
         };
         Ok(config)
     }
@@ -61,12 +44,7 @@ impl Config {
             return Err("wrong config, sessions_path is empty")?;
         }
         let sessions_path = resolve_path(&sessions_path)?;
-        let config = Config {
-            action: Action::Start {
-                date: DateTime::now(),
-            },
-            sessions_path,
-        };
+        let config = Config { sessions_path };
         Ok(config)
     }
 }
@@ -88,7 +66,7 @@ pub enum Action {
 }
 
 impl Action {
-    fn build(name: &str, args: &[String]) -> Result<Action, Box<dyn Error>> {
+    pub fn build(name: &str, args: &[String]) -> Result<Action, Box<dyn Error>> {
         let out = match name {
             "start" => match args.len() {
                 0 => Action::Start {
@@ -185,25 +163,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn config_from_args_works() {
-        let args = &[String::from("time_tracker"), String::from("start")];
-        let config = Config {
-            action: Action::Start {
-                date: DateTime::now(),
-            },
-            sessions_path: PathBuf::from(""),
-        };
-        assert_eq!(Config::from_args(args).unwrap(), config);
-    }
-
-    #[test]
     fn config_from_file_works() {
         let path = "./notes/sessions";
         let contents = format!("{CONFIG_SESSIONS_PATH}='{path}'");
         let config = Config {
-            action: Action::Start {
-                date: DateTime::now(),
-            },
             sessions_path: PathBuf::from(&path),
         };
         assert_eq!(Config::from_file(&contents).unwrap(), config);
