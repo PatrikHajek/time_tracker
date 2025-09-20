@@ -1,5 +1,6 @@
 use config::{Action, Config};
-use session::{Aggregator, Session, SessionFile};
+use date_time::DateTime;
+use session::{Aggregator, Label, Session, SessionFile};
 use std::{env, error::Error, fs, io, path::PathBuf, process::Command};
 
 mod config;
@@ -8,35 +9,44 @@ mod session;
 #[cfg(test)]
 mod testing;
 
-// TODO: put all these functions inside Action?
 pub fn run(args: &[String]) -> Result<(), Box<dyn Error>> {
-    let config = Config::build(&args).map_err(|err| format!("Problem parsing arguments: {err}"))?;
-    let out = match config.action {
-        Action::Start { .. } => start(&config),
-        Action::Stop { .. } => stop(&config),
-        Action::Mark { .. } => mark(&config),
-        Action::Remark { .. } => remark(&config),
+    let (action, config) =
+        setup(&args).map_err(|err| format!("Problem parsing arguments: {err}"))?;
+
+    let out = match action {
+        Action::Start { date } => start(&config, &date),
+        Action::Stop { date } => stop(&config, &date),
+        Action::Mark { date } => mark(&config, &date),
+        Action::Remark { date } => remark(&config, &date),
         Action::Unmark => unmark(&config),
         Action::Path => path(&config),
         Action::View => view(&config),
-        Action::Label { .. } => label(&config),
-        Action::Unlabel { .. } => unlabel(&config),
-        Action::Write { .. } => write(&config),
+        Action::Label { label: label_ } => label(&config, &label_),
+        Action::Unlabel { label } => unlabel(&config, &label),
+        Action::Write { text } => write(&config, &text),
         Action::Version => Ok(version()),
     }
     .map_err(|err| format!("Application error: {err}"))?;
     Ok(out)
 }
 
-fn start(config: &Config) -> Result<(), Box<dyn Error>> {
+fn setup(args: &[String]) -> Result<(Action, Config), Box<dyn Error>> {
+    if args.len() < 2 {
+        return Err("not enough arguments")?;
+    }
+
+    // First arg (args[0]) is the name of the program.
+    let action = Action::build(&args[1], &args[2..])?;
+    let config = Config::build()?;
+    Ok((action, config))
+}
+
+fn start(config: &Config, date: &DateTime) -> Result<(), Box<dyn Error>> {
     if let Some(session) = Session::get_last(&config)? {
         if session.is_active() {
             return Err("another session is already active")?;
         }
     }
-    let Action::Start { date } = &config.action else {
-        panic!("wrong action, expected Action::Start");
-    };
 
     let session = Session::new(&config, &date);
     let SessionFile { path, contents } = session.to_file()?;
@@ -48,12 +58,9 @@ fn start(config: &Config) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn stop(config: &Config) -> Result<(), Box<dyn Error>> {
+fn stop(config: &Config, date: &DateTime) -> Result<(), Box<dyn Error>> {
     let Some(mut session) = Session::get_last(&config)? else {
         return Err("no active session found")?;
-    };
-    let Action::Stop { date } = &config.action else {
-        panic!("wrong action, expected Action::Stop");
     };
 
     session.stop(&date)?;
@@ -71,12 +78,9 @@ fn stop(config: &Config) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn mark(config: &Config) -> Result<(), Box<dyn Error>> {
+fn mark(config: &Config, date: &DateTime) -> Result<(), Box<dyn Error>> {
     let Some(mut session) = Session::get_last(&config)? else {
         return Err("no active session found")?;
-    };
-    let Action::Mark { date } = &config.action else {
-        panic!("wrong action, expected Action::Mark");
     };
 
     session.mark(&date)?;
@@ -85,12 +89,9 @@ fn mark(config: &Config) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn remark(config: &Config) -> Result<(), Box<dyn Error>> {
+fn remark(config: &Config, date: &DateTime) -> Result<(), Box<dyn Error>> {
     let Some(mut session) = Session::get_last(&config)? else {
         return Err("no active session found")?;
-    };
-    let Action::Remark { date } = &config.action else {
-        panic!("wrong action, expected Action::Remark");
     };
 
     session.remark(&date);
@@ -103,7 +104,6 @@ fn unmark(config: &Config) -> Result<(), Box<dyn Error>> {
     let Some(mut session) = Session::get_last(&config)? else {
         return Err("no active session found")?;
     };
-    assert_eq!(config.action, Action::Unmark);
 
     if let Some(mark) = session.unmark() {
         session.save()?;
@@ -128,14 +128,12 @@ fn view(config: &Config) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn label(config: &Config) -> Result<(), Box<dyn Error>> {
+fn label(config: &Config, label: &Label) -> Result<(), Box<dyn Error>> {
     let Some(mut session) = Session::get_last(&config)? else {
         // TODO: message should be more like: "no session found", change all other occurrences
         return Err("no active session found")?;
     };
-    let Action::Label { label } = &config.action else {
-        panic!("wrong action, expected Action::Label");
-    };
+
     let was_added = session.label(&label);
     session.save()?;
     if was_added {
@@ -146,13 +144,11 @@ fn label(config: &Config) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn unlabel(config: &Config) -> Result<(), Box<dyn Error>> {
+fn unlabel(config: &Config, label: &Label) -> Result<(), Box<dyn Error>> {
     let Some(mut session) = Session::get_last(&config)? else {
         return Err("no active session found")?;
     };
-    let Action::Unlabel { label } = &config.action else {
-        panic!("wrong action, expected Action::Unlabel");
-    };
+
     let was_removed = session.unlabel(&label);
     session.save()?;
     if was_removed {
@@ -163,13 +159,11 @@ fn unlabel(config: &Config) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn write(config: &Config) -> Result<(), Box<dyn Error>> {
+fn write(config: &Config, text: &str) -> Result<(), Box<dyn Error>> {
     let Some(mut session) = Session::get_last(&config)? else {
         return Err("no active session found")?;
     };
-    let Action::Write { text } = &config.action else {
-        panic!("wrong action, expected Action::Write");
-    };
+
     let has_failed = session.write(&text).is_err();
     if has_failed {
         println!("Current mark already contains some text, do you want to overwrite it? (y/n)");

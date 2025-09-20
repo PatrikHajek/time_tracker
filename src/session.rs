@@ -495,7 +495,7 @@ impl Label {
 mod tests {
     use super::*;
 
-    use crate::{testing, Action};
+    use crate::testing;
     use chrono::Timelike;
 
     fn get_template(date: &str) -> String {
@@ -634,9 +634,6 @@ mod tests {
     #[test]
     fn session_new_works() {
         let config = Config {
-            action: Action::Start {
-                date: DateTime::now(),
-            },
             sessions_path: PathBuf::from("."),
         };
         let dt = DateTime::now();
@@ -653,9 +650,6 @@ mod tests {
     #[test]
     fn session_start_works() {
         let config = Config {
-            action: Action::Start {
-                date: DateTime::now(),
-            },
             sessions_path: PathBuf::from("sessions"),
         };
         let mut session = Session::new(&config, &DateTime::now());
@@ -667,9 +661,6 @@ mod tests {
     #[test]
     fn session_end_works() {
         let config = Config {
-            action: Action::Start {
-                date: DateTime::now(),
-            },
             sessions_path: PathBuf::from("sessions"),
         };
         let mut session = Session::new(&config, &DateTime::now());
@@ -682,9 +673,6 @@ mod tests {
     #[test]
     fn session_is_active_works() {
         let config = Config {
-            action: Action::Start {
-                date: DateTime::now(),
-            },
             sessions_path: PathBuf::from("sessions"),
         };
         let mut session = Session::new(&config, &DateTime::now());
@@ -724,9 +712,6 @@ mod tests {
     #[test]
     fn session_stop_works() {
         let config = Config {
-            action: Action::Stop {
-                date: DateTime::now(),
-            },
             sessions_path: PathBuf::from("sessions"),
         };
         let mut session = Session::new(&config, &DateTime::now());
@@ -742,9 +727,6 @@ mod tests {
     #[test]
     fn cannot_stop_when_session_ended() {
         let config = Config {
-            action: Action::Stop {
-                date: DateTime::now(),
-            },
             sessions_path: PathBuf::from("sessions"),
         };
         let mut session = Session::new(&config, &DateTime::now());
@@ -758,9 +740,6 @@ mod tests {
     fn session_mark_works() {
         let dt = DateTime::now();
         let config = Config {
-            action: Action::Start {
-                date: DateTime::now(),
-            },
             sessions_path: PathBuf::from("sessions"),
         };
         let mut session = Session::new(&config, &DateTime::now());
@@ -789,9 +768,6 @@ mod tests {
     #[test]
     fn cannot_mark_when_session_ended() {
         let config = Config {
-            action: Action::Mark {
-                date: DateTime::now(),
-            },
             sessions_path: PathBuf::from("sessions"),
         };
         let mut session = Session::new(&config, &DateTime::now());
@@ -804,9 +780,6 @@ mod tests {
     #[test]
     fn session_remark_works() {
         let config = Config {
-            action: Action::Start {
-                date: DateTime::now(),
-            },
             sessions_path: PathBuf::from("sessions"),
         };
         let mut session = Session::new(&config, &DateTime::now());
@@ -821,9 +794,6 @@ mod tests {
     #[test]
     fn session_unmark_works() {
         let config = Config {
-            action: Action::Start {
-                date: DateTime::now(),
-            },
             sessions_path: PathBuf::from("sessions"),
         };
         let mut session = Session::new(&config, &DateTime::now());
@@ -846,7 +816,6 @@ mod tests {
     #[test]
     fn session_label_works() {
         let config = Config {
-            action: Action::Label { label: Label::Skip },
             sessions_path: PathBuf::from("sessions"),
         };
         let mut session = Session::new(&config, &DateTime::now());
@@ -861,7 +830,6 @@ mod tests {
     #[test]
     fn session_unlabel_works() {
         let config = Config {
-            action: Action::Label { label: Label::Skip },
             sessions_path: PathBuf::from("sessions"),
         };
         let mut session = Session::new(&config, &DateTime::now());
@@ -876,9 +844,6 @@ mod tests {
     #[test]
     fn session_write_works() {
         let config = Config {
-            action: Action::Write {
-                text: String::new(),
-            },
             sessions_path: PathBuf::from("sessions"),
         };
         let mut session = Session::new(&config, &DateTime::now());
@@ -893,9 +858,6 @@ mod tests {
     #[test]
     fn session_write_errors_when_there_is_content() {
         let config = Config {
-            action: Action::Start {
-                date: DateTime::now(),
-            },
             sessions_path: PathBuf::from("sessions"),
         };
         let mut session = Session::new(&config, &DateTime::now());
@@ -973,9 +935,6 @@ mod tests {
             contents: String::from("I am the second mark!\nHi!\n"),
         };
         let config = Config {
-            action: Action::Mark {
-                date: DateTime::now(),
-            },
             sessions_path: PathBuf::from("sessions"),
         };
         let session = Session {
@@ -1022,9 +981,6 @@ mod tests {
             contents: String::from("feat/new-feature"),
         };
         let config = Config {
-            action: Action::Mark {
-                date: DateTime::now(),
-            },
             sessions_path: PathBuf::from("sessions"),
         };
         let session = Session {
