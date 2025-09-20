@@ -62,6 +62,19 @@ impl DateTime {
         self.date.format("%F %T %:z").to_string()
     }
 
+    /// If the date is today, prints just the time, otherwise prints the whole date.
+    pub fn to_formatted_pretty_short(&self) -> String {
+        let now = DateTime::now().date;
+        let difference = now.timestamp_millis() - self.date.timestamp_millis();
+        let difference = difference.abs();
+        let is_same_day = difference < 24 * 60 * 60 * 1000 && now.day() == self.date.day();
+        if is_same_day {
+            self.to_formatted_time()
+        } else {
+            self.to_formatted_pretty()
+        }
+    }
+
     pub fn to_formatted_time(&self) -> String {
         self.date.format("%T").to_string()
     }
@@ -344,6 +357,25 @@ mod tests {
             DateTime::new(&date_default).plus_days(-400),
             DateTime::new(&date_default).plus_milli(-400 * 24 * 60 * 60 * 1000)
         );
+    }
+
+    #[test]
+    fn date_time_to_formatted_pretty_short_works() {
+        let date = &testing::date_default();
+
+        let dt = DateTime::new(&date);
+        assert_eq!(dt.to_formatted_pretty_short(), dt.to_formatted_pretty());
+
+        let date = date.with_day(DateTime::now().date.day()).unwrap();
+
+        let dt = DateTime::new(&date.with_month(8).unwrap());
+        assert_eq!(dt.to_formatted_pretty_short(), dt.to_formatted_pretty());
+
+        let dt = DateTime::new(&date.with_year(2005).unwrap());
+        assert_eq!(dt.to_formatted_pretty_short(), dt.to_formatted_pretty());
+
+        let dt = DateTime::now();
+        assert_eq!(dt.to_formatted_pretty_short(), dt.to_formatted_time());
     }
 
     #[test]
