@@ -1,4 +1,4 @@
-use crate::{date_time::DateTime, get_git_branch_name, resolve_path, session::Label};
+use crate::{date_time::DateTime, get_git_branch_name, resolve_path, session::Tag};
 use std::{error::Error, fs, io, path::PathBuf};
 
 const CONFIG_PATH: &str = "~/.timetracker.toml";
@@ -53,13 +53,14 @@ impl Config {
 pub enum Action {
     Start { date: DateTime },
     Stop { date: DateTime },
+    Skip,
     Mark { date: DateTime },
     Remark { date: DateTime },
     Unmark,
     Path,
     View,
-    Label { label: Label },
-    Unlabel { label: Label },
+    Tag { tag: Tag },
+    Untag { tag: Tag },
     Write { text: String },
     Version,
     // Set,
@@ -86,6 +87,12 @@ impl Action {
                 },
                 _ => return Err("too many arguments")?,
             },
+            "skip" => {
+                if args.len() != 0 {
+                    return Err("too many arguments")?;
+                }
+                Action::Skip
+            }
             "mark" => match args.len() {
                 0 => Action::Mark {
                     date: DateTime::now(),
@@ -122,15 +129,16 @@ impl Action {
                 }
                 Action::View
             }
-            "label" | "unlabel" => {
+            "tag" | "untag" => {
                 if args.len() == 0 {
                     return Err("no label specified")?;
+                } else if args.len() > 1 {
+                    return Err("too many arguments")?;
                 }
-                // TODO: forbid adding Label::End?
-                let label = Label::from_args(&args)?;
+                let tag = Tag::from_text(&args[0])?;
                 match name {
-                    "label" => Action::Label { label },
-                    "unlabel" => Action::Unlabel { label },
+                    "tag" => Action::Tag { tag },
+                    "untag" => Action::Untag { tag },
                     x => panic!("unreachable Action::Label pattern {x}"),
                 }
             }
@@ -211,6 +219,9 @@ mod tests {
         assert!(Action::build("stop", &[String::from("0m"), String::from("hello")]).is_err());
         assert!(Action::build("stop", &[String::from("hello")]).is_err());
 
+        assert_eq!(Action::build("skip", &[])?, Action::Skip);
+        assert!(Action::build("skip", &[String::from("hello")]).is_err());
+
         assert_eq!(
             Action::build("mark", &[])?,
             Action::Mark {
@@ -247,21 +258,23 @@ mod tests {
         assert_eq!(Action::build("view", &[])?, Action::View);
         assert!(Action::build("view", &[String::from("hello")]).is_err());
 
-        assert!(Action::build("label", &[]).is_err());
-        assert!(Action::build("label", &[String::from("hello")]).is_err());
-        assert!(Action::build("label", &[String::from("skip"), String::from("hello")]).is_err());
+        assert!(Action::build("tag", &[]).is_err());
         assert_eq!(
-            Action::build("label", &[String::from("skip")])?,
-            Action::Label { label: Label::Skip }
+            Action::build("tag", &[String::from("hello")])?,
+            Action::Tag {
+                tag: Tag::from_text("hello")?
+            }
         );
+        assert!(Action::build("tag", &[String::from("skip"), String::from("hello")]).is_err());
 
-        assert!(Action::build("unlabel", &[]).is_err());
-        assert!(Action::build("unlabel", &[String::from("hello")]).is_err());
-        assert!(Action::build("unlabel", &[String::from("skip"), String::from("hello")]).is_err());
+        assert!(Action::build("untag", &[]).is_err());
         assert_eq!(
-            Action::build("unlabel", &[String::from("skip")])?,
-            Action::Unlabel { label: Label::Skip }
+            Action::build("untag", &[String::from("hello")])?,
+            Action::Untag {
+                tag: Tag::from_text("hello")?
+            }
         );
+        assert!(Action::build("untag", &[String::from("skip"), String::from("hello")]).is_err());
 
         assert!(Action::build("write", &[]).is_err());
         assert!(Action::build("write", &[String::from("hello"), String::from("bye")]).is_err());

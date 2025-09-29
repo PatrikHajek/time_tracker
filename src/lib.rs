@@ -1,6 +1,6 @@
 use config::{Action, Config};
 use date_time::DateTime;
-use session::{Aggregator, Label, Session, SessionFile};
+use session::{Aggregator, Session, SessionFile, Tag};
 use std::{env, error::Error, fs, io, path::PathBuf, process::Command};
 
 mod config;
@@ -16,13 +16,14 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn Error>> {
     let out = match action {
         Action::Start { date } => start(&config, &date),
         Action::Stop { date } => stop(&config, &date),
+        Action::Skip => skip(&config),
         Action::Mark { date } => mark(&config, &date),
         Action::Remark { date } => remark(&config, &date),
         Action::Unmark => unmark(&config),
         Action::Path => path(&config),
         Action::View => view(&config),
-        Action::Label { label: label_ } => label(&config, &label_),
-        Action::Unlabel { label } => unlabel(&config, &label),
+        Action::Tag { tag: tag_ } => tag(&config, &tag_),
+        Action::Untag { tag } => untag(&config, &tag),
         Action::Write { text } => write(&config, &text),
         Action::Version => Ok(version()),
     }
@@ -78,6 +79,17 @@ fn stop(config: &Config, date: &DateTime) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+fn skip(config: &Config) -> Result<(), Box<dyn Error>> {
+    let Some(mut session) = Session::get_last(&config)? else {
+        return Err("no active session found")?;
+    };
+
+    session.skip();
+    session.save()?;
+    println!("Skipped current mark");
+    Ok(())
+}
+
 fn mark(config: &Config, date: &DateTime) -> Result<(), Box<dyn Error>> {
     let Some(mut session) = Session::get_last(&config)? else {
         return Err("no active session found")?;
@@ -128,33 +140,34 @@ fn view(config: &Config) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn label(config: &Config, label: &Label) -> Result<(), Box<dyn Error>> {
+fn tag(config: &Config, tag: &Tag) -> Result<(), Box<dyn Error>> {
     let Some(mut session) = Session::get_last(&config)? else {
         // TODO: message should be more like: "no session found", change all other occurrences
         return Err("no active session found")?;
     };
 
-    let was_added = session.label(&label);
+    let was_added = session.tag(&tag);
     session.save()?;
     if was_added {
-        println!("Added label: {label:?}");
+        println!("Added tag: {tag:?}");
     } else {
-        println!("Label `{label:?}` already present");
+        println!("Tag `{tag:?}` already present");
     }
     Ok(())
 }
 
-fn unlabel(config: &Config, label: &Label) -> Result<(), Box<dyn Error>> {
+fn untag(config: &Config, tag: &Tag) -> Result<(), Box<dyn Error>> {
     let Some(mut session) = Session::get_last(&config)? else {
         return Err("no active session found")?;
     };
 
-    let was_removed = session.unlabel(&label);
+    let was_removed = session.untag(&tag);
     session.save()?;
+    // TODO: Improve output.
     if was_removed {
-        println!("Removed label: {label:?}");
+        println!("Removed tag: {tag:?}");
     } else {
-        println!("Label `{label:?}` not present")
+        println!("Tag `{tag:?}` not present")
     }
     Ok(())
 }
