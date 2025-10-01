@@ -1105,7 +1105,7 @@ mod tests {
         let mark = Mark {
             date: dt.date,
             attribute: Attribute::Stop,
-            tags: HashSet::from_iter([Tag::from_text("rust")?, Tag::from_text("time tracker")?]),
+            tags: HashSet::from_iter([Tag::from_text("time tracker")?, Tag::from_text("rust")?]),
             contents: String::from("This is a content of a mark.\nHow are you?\n"),
         };
         let output = format!(
