@@ -417,7 +417,7 @@ impl Mark {
             contents += "\n";
             if self.attribute != Attribute::None {
                 contents += "\n";
-                contents += &self.attribute.to_string();
+                contents += &self.attribute.to_line();
             }
             if !self.tags.is_empty() {
                 // TODO: Put all tags on the same line?
@@ -455,7 +455,7 @@ impl Attribute {
         }
     }
 
-    fn to_string(&self) -> String {
+    fn to_line(&self) -> String {
         match self {
             Attribute::Stop => LABEL_END.to_owned(),
             Attribute::Skip => LABEL_SKIP.to_owned(),
@@ -1148,10 +1148,10 @@ mod tests {
     }
 
     #[test]
-    fn attribute_to_string_works() {
-        assert_eq!(Attribute::Stop.to_string(), LABEL_END);
-        assert_eq!(Attribute::Skip.to_string(), LABEL_SKIP);
-        assert_eq!(Attribute::None.to_string(), "");
+    fn attribute_to_line_works() {
+        assert_eq!(Attribute::Stop.to_line(), LABEL_END);
+        assert_eq!(Attribute::Skip.to_line(), LABEL_SKIP);
+        assert_eq!(Attribute::None.to_line(), "");
     }
 
     #[test]
