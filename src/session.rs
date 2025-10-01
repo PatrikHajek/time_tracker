@@ -426,7 +426,7 @@ impl Mark {
                 tags.sort_by(|a, b| a.text.cmp(&b.text));
                 contents += &tags
                     .iter()
-                    .fold(String::new(), |acc, val| acc + "\n" + &val.to_string());
+                    .fold(String::new(), |acc, val| acc + "\n" + &val.to_line());
             }
         }
         let trimmed = self.contents.trim();
@@ -501,7 +501,7 @@ impl Tag {
         }
     }
 
-    fn to_string(&self) -> String {
+    fn to_line(&self) -> String {
         let text = &self.text;
         // There shouldn't be a way to store an empty string in here.
         assert!(!text.is_empty());
@@ -1189,9 +1189,9 @@ mod tests {
     }
 
     #[test]
-    fn tag_to_string_works() -> Result<(), Box<dyn Error>> {
+    fn tag_to_line_works() -> Result<(), Box<dyn Error>> {
         assert_eq!(
-            Tag::from_text("rust")?.to_string(),
+            Tag::from_text("rust")?.to_line(),
             format!("{LABEL_TAG} {LABEL_TAG_SURROUND}rust{LABEL_TAG_SURROUND}")
         );
 
