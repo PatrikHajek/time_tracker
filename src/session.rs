@@ -388,7 +388,7 @@ impl Mark {
                 } else if attr != Attribute::None {
                     return Err("multiple attributes per mark are not allowed")?;
                 } else {
-                    tags.insert(Tag::from_string(&line)?);
+                    tags.insert(Tag::from_line(&line)?);
                 }
             }
             let labels_len = tags.len() + if attribute != Attribute::None { 1 } else { 0 };
@@ -484,8 +484,7 @@ impl Tag {
         }
     }
 
-    // TODO: Rename to `from_line`.
-    fn from_string(text: &str) -> Result<Tag, String> {
+    fn from_line(text: &str) -> Result<Tag, String> {
         if text.starts_with(&format!("{LABEL_TAG} {LABEL_TAG_SURROUND}"))
             && text.ends_with(LABEL_TAG_SURROUND)
         {
@@ -1170,21 +1169,21 @@ mod tests {
     }
 
     #[test]
-    fn tag_from_string_works() -> Result<(), Box<dyn Error>> {
+    fn tag_from_line_works() -> Result<(), Box<dyn Error>> {
         assert_eq!(
-            Tag::from_string(&format!(
+            Tag::from_line(&format!(
                 "{LABEL_TAG} {LABEL_TAG_SURROUND}rust{LABEL_TAG_SURROUND}"
             ))?,
             Tag {
                 text: String::from("rust")
             }
         );
-        assert!(Tag::from_string(&format!("rust")).is_err());
-        assert!(Tag::from_string(&format!("{LABEL_TAG} rust")).is_err());
-        assert!(Tag::from_string(&format!("{LABEL_TAG} {LABEL_TAG_SURROUND}rust")).is_err());
-        assert!(Tag::from_string(&format!("{LABEL_TAG} rust{LABEL_TAG_SURROUND}")).is_err());
-        assert!(Tag::from_string(&format!("{LABEL_TAG_SURROUND}rust")).is_err());
-        assert!(Tag::from_string(&format!("rust{LABEL_TAG_SURROUND}")).is_err());
+        assert!(Tag::from_line(&format!("rust")).is_err());
+        assert!(Tag::from_line(&format!("{LABEL_TAG} rust")).is_err());
+        assert!(Tag::from_line(&format!("{LABEL_TAG} {LABEL_TAG_SURROUND}rust")).is_err());
+        assert!(Tag::from_line(&format!("{LABEL_TAG} rust{LABEL_TAG_SURROUND}")).is_err());
+        assert!(Tag::from_line(&format!("{LABEL_TAG_SURROUND}rust")).is_err());
+        assert!(Tag::from_line(&format!("rust{LABEL_TAG_SURROUND}")).is_err());
 
         Ok(())
     }
