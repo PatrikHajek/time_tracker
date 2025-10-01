@@ -471,7 +471,6 @@ pub struct Tag {
 
 // TODO: Make from_line use from_text.
 impl Tag {
-    // TEST:
     pub fn from_text(text: &str) -> Result<Tag, String> {
         let text = text.trim();
         if text.is_empty() {
@@ -486,7 +485,6 @@ impl Tag {
     }
 
     // TODO: Rename to `from_line`.
-    // TEST:
     fn from_string(text: &str) -> Result<Tag, String> {
         if text.starts_with(&format!("{LABEL_TAG} {LABEL_TAG_SURROUND}"))
             && text.ends_with(LABEL_TAG_SURROUND)
@@ -504,7 +502,6 @@ impl Tag {
         }
     }
 
-    // TEST:
     fn to_string(&self) -> String {
         let text = &self.text;
         // There shouldn't be a way to store empty string in Label::Tag.
@@ -1156,5 +1153,49 @@ mod tests {
         assert_eq!(Attribute::Stop.to_string(), LABEL_END);
         assert_eq!(Attribute::Skip.to_string(), LABEL_SKIP);
         assert_eq!(Attribute::None.to_string(), "");
+    }
+
+    #[test]
+    fn tag_from_text_works() -> Result<(), Box<dyn Error>> {
+        assert_eq!(
+            Tag::from_text("rust")?,
+            Tag {
+                text: String::from("rust")
+            }
+        );
+        assert!(Tag::from_text("").is_err());
+        assert!(Tag::from_text(LABEL_TAG_SURROUND).is_err());
+
+        Ok(())
+    }
+
+    #[test]
+    fn tag_from_string_works() -> Result<(), Box<dyn Error>> {
+        assert_eq!(
+            Tag::from_string(&format!(
+                "{LABEL_TAG} {LABEL_TAG_SURROUND}rust{LABEL_TAG_SURROUND}"
+            ))?,
+            Tag {
+                text: String::from("rust")
+            }
+        );
+        assert!(Tag::from_string(&format!("rust")).is_err());
+        assert!(Tag::from_string(&format!("{LABEL_TAG} rust")).is_err());
+        assert!(Tag::from_string(&format!("{LABEL_TAG} {LABEL_TAG_SURROUND}rust")).is_err());
+        assert!(Tag::from_string(&format!("{LABEL_TAG} rust{LABEL_TAG_SURROUND}")).is_err());
+        assert!(Tag::from_string(&format!("{LABEL_TAG_SURROUND}rust")).is_err());
+        assert!(Tag::from_string(&format!("rust{LABEL_TAG_SURROUND}")).is_err());
+
+        Ok(())
+    }
+
+    #[test]
+    fn tag_to_string_works() -> Result<(), Box<dyn Error>> {
+        assert_eq!(
+            Tag::from_text("rust")?.to_string(),
+            format!("{LABEL_TAG} {LABEL_TAG_SURROUND}rust{LABEL_TAG_SURROUND}")
+        );
+
+        Ok(())
     }
 }
