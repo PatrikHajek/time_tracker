@@ -447,7 +447,6 @@ pub enum Attribute {
 }
 
 impl Attribute {
-    // TEST:
     fn from_string(text: &str) -> Attribute {
         match text.trim() {
             LABEL_END => Attribute::Stop,
@@ -456,7 +455,6 @@ impl Attribute {
         }
     }
 
-    // TEST:
     fn to_string(&self) -> String {
         match self {
             Attribute::Stop => LABEL_END.to_owned(),
@@ -1142,5 +1140,21 @@ mod tests {
         };
         assert_eq!(mark, Mark::from_string(&mark.to_string())?);
         Ok(())
+    }
+
+    #[test]
+    fn attribute_from_string_works() {
+        assert_eq!(Attribute::from_string(LABEL_END), Attribute::Stop);
+        assert_eq!(Attribute::from_string(LABEL_SKIP), Attribute::Skip);
+        assert_eq!(Attribute::from_string(LABEL_TAG), Attribute::None);
+        assert_eq!(Attribute::from_string("- something else"), Attribute::None);
+        assert_eq!(Attribute::from_string("something else"), Attribute::None);
+    }
+
+    #[test]
+    fn attribute_to_string_works() {
+        assert_eq!(Attribute::Stop.to_string(), LABEL_END);
+        assert_eq!(Attribute::Skip.to_string(), LABEL_SKIP);
+        assert_eq!(Attribute::None.to_string(), "");
     }
 }
