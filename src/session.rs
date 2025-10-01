@@ -382,7 +382,7 @@ impl Mark {
                 if !line.starts_with(LABEL_PREFIX) {
                     break;
                 }
-                let attr = Attribute::from_string(&line);
+                let attr = Attribute::from_line(&line);
                 if attribute == Attribute::None {
                     attribute = attr;
                 } else if attr != Attribute::None {
@@ -447,7 +447,7 @@ pub enum Attribute {
 }
 
 impl Attribute {
-    fn from_string(text: &str) -> Attribute {
+    fn from_line(text: &str) -> Attribute {
         match text.trim() {
             LABEL_END => Attribute::Stop,
             LABEL_SKIP => Attribute::Skip,
@@ -1139,12 +1139,12 @@ mod tests {
     }
 
     #[test]
-    fn attribute_from_string_works() {
-        assert_eq!(Attribute::from_string(LABEL_END), Attribute::Stop);
-        assert_eq!(Attribute::from_string(LABEL_SKIP), Attribute::Skip);
-        assert_eq!(Attribute::from_string(LABEL_TAG), Attribute::None);
-        assert_eq!(Attribute::from_string("- something else"), Attribute::None);
-        assert_eq!(Attribute::from_string("something else"), Attribute::None);
+    fn attribute_from_line_works() {
+        assert_eq!(Attribute::from_line(LABEL_END), Attribute::Stop);
+        assert_eq!(Attribute::from_line(LABEL_SKIP), Attribute::Skip);
+        assert_eq!(Attribute::from_line(LABEL_TAG), Attribute::None);
+        assert_eq!(Attribute::from_line("- something else"), Attribute::None);
+        assert_eq!(Attribute::from_line("something else"), Attribute::None);
     }
 
     #[test]
