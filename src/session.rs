@@ -504,7 +504,7 @@ impl Tag {
 
     fn to_string(&self) -> String {
         let text = &self.text;
-        // There shouldn't be a way to store empty string in Label::Tag.
+        // There shouldn't be a way to store an empty string in here.
         assert!(!text.is_empty());
         format!("{LABEL_TAG} {LABEL_TAG_SURROUND}{text}{LABEL_TAG_SURROUND}")
     }
