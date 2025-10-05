@@ -1126,7 +1126,7 @@ mod tests {
     }
 
     #[test]
-    fn mark_to_string_from_string() -> Result<(), Box<dyn Error>> {
+    fn mark_to_string_from_string_works() -> Result<(), Box<dyn Error>> {
         let dt = DateTime::now();
 
         let mark = Mark {
