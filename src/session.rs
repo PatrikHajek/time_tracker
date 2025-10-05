@@ -301,7 +301,7 @@ impl Session {
         for line in marks_contents.lines() {
             if line.starts_with(MARK_HEADING_PREFIX) {
                 let contents = SessionFile::get_heading_with_contents(&line, &marks_contents);
-                let mark = Mark::from_string(&contents)?;
+                let mark = Mark::from_line(&contents)?;
                 marks.push(mark);
             }
         }
@@ -362,7 +362,7 @@ impl Mark {
         self.contents = String::new();
     }
 
-    fn from_string(contents: &str) -> Result<Mark, Box<dyn Error>> {
+    fn from_line(contents: &str) -> Result<Mark, Box<dyn Error>> {
         let contents = contents.trim();
         let date = contents
             .lines()
@@ -1077,7 +1077,7 @@ mod tests {
     }
 
     #[test]
-    fn mark_from_string_works() -> Result<(), Box<dyn Error>> {
+    fn mark_from_line_works() -> Result<(), Box<dyn Error>> {
         let dt = DateTime::now();
         let contents = format!(
             "\
@@ -1097,12 +1097,12 @@ mod tests {
             tags: HashSet::from_iter([Tag::from_text("rust")?, Tag::from_text("time tracker")?]),
             contents: String::from("This is some content."),
         };
-        assert_eq!(Mark::from_string(&contents).unwrap(), mark);
+        assert_eq!(Mark::from_line(&contents).unwrap(), mark);
         Ok(())
     }
 
     #[test]
-    fn mark_from_string_fails_if_multiple_attributes_are_specified() {
+    fn mark_from_line_fails_if_multiple_attributes_are_specified() {
         let dt = DateTime::now();
         let contents = format!(
             "\
@@ -1115,7 +1115,7 @@ mod tests {
                 ",
             dt.to_formatted_pretty()
         );
-        assert!(Mark::from_string(&contents).is_err());
+        assert!(Mark::from_line(&contents).is_err());
     }
 
     #[test]
@@ -1145,7 +1145,7 @@ mod tests {
     }
 
     #[test]
-    fn mark_to_string_from_string_works() -> Result<(), Box<dyn Error>> {
+    fn mark_to_string_from_line_works() -> Result<(), Box<dyn Error>> {
         let dt = DateTime::now();
 
         let mark = Mark {
@@ -1154,7 +1154,7 @@ mod tests {
             tags: HashSet::new(),
             contents: String::from("This is a content of a mark.\nHow are you?"),
         };
-        assert_eq!(mark, Mark::from_string(&mark.to_string())?);
+        assert_eq!(mark, Mark::from_line(&mark.to_string())?);
 
         let mark = Mark {
             date: dt.date,
@@ -1162,7 +1162,7 @@ mod tests {
             tags: HashSet::new(),
             contents: String::from("This is a content of a mark.\nHow are you?"),
         };
-        assert_eq!(mark, Mark::from_string(&mark.to_string())?);
+        assert_eq!(mark, Mark::from_line(&mark.to_string())?);
 
         let mark = Mark {
             date: dt.date,
@@ -1170,7 +1170,7 @@ mod tests {
             tags: HashSet::from_iter([Tag::from_text("rust")?, Tag::from_text("time tracker")?]),
             contents: String::from("This is a content of a mark.\nHow are you?"),
         };
-        assert_eq!(mark, Mark::from_string(&mark.to_string())?);
+        assert_eq!(mark, Mark::from_line(&mark.to_string())?);
 
         let mark = Mark {
             date: dt.date,
@@ -1178,7 +1178,7 @@ mod tests {
             tags: HashSet::from_iter([Tag::from_text("rust")?, Tag::from_text("time tracker")?]),
             contents: String::from("This is a content of a mark.\nHow are you?"),
         };
-        assert_eq!(mark, Mark::from_string(&mark.to_string())?);
+        assert_eq!(mark, Mark::from_line(&mark.to_string())?);
 
         Ok(())
     }
