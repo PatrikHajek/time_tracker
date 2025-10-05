@@ -1100,7 +1100,7 @@ mod tests {
     }
 
     #[test]
-    fn mark_from_string_fails_if_multiple_attributes_are_specified() -> Result<(), Box<dyn Error>> {
+    fn mark_from_string_fails_if_multiple_attributes_are_specified() {
         let dt = DateTime::now();
         let contents = format!(
             "\
@@ -1114,7 +1114,6 @@ mod tests {
             dt.to_formatted_pretty()
         );
         assert!(Mark::from_string(&contents).is_err());
-        Ok(())
     }
 
     #[test]
