@@ -383,10 +383,12 @@ impl Mark {
                     break;
                 }
                 let attr = Attribute::from_line(&line);
-                if attribute == Attribute::None {
-                    attribute = attr;
-                } else if attr != Attribute::None {
-                    return Err("multiple attributes per mark are not allowed")?;
+                if attr != Attribute::None {
+                    if attribute == Attribute::None {
+                        attribute = attr;
+                    } else {
+                        return Err("multiple attributes per mark are not allowed")?;
+                    }
                 } else {
                     tags.insert(Tag::from_line(&line)?);
                 }
