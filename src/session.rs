@@ -1128,6 +1128,31 @@ mod tests {
     #[test]
     fn mark_to_string_from_string() -> Result<(), Box<dyn Error>> {
         let dt = DateTime::now();
+
+        let mark = Mark {
+            date: dt.date,
+            attribute: Attribute::None,
+            tags: HashSet::new(),
+            contents: String::from("This is a content of a mark.\nHow are you?"),
+        };
+        assert_eq!(mark, Mark::from_string(&mark.to_string())?);
+
+        let mark = Mark {
+            date: dt.date,
+            attribute: Attribute::Stop,
+            tags: HashSet::new(),
+            contents: String::from("This is a content of a mark.\nHow are you?"),
+        };
+        assert_eq!(mark, Mark::from_string(&mark.to_string())?);
+
+        let mark = Mark {
+            date: dt.date,
+            attribute: Attribute::None,
+            tags: HashSet::from_iter([Tag::from_text("rust")?, Tag::from_text("time tracker")?]),
+            contents: String::from("This is a content of a mark.\nHow are you?"),
+        };
+        assert_eq!(mark, Mark::from_string(&mark.to_string())?);
+
         let mark = Mark {
             date: dt.date,
             attribute: Attribute::Stop,
@@ -1135,6 +1160,7 @@ mod tests {
             contents: String::from("This is a content of a mark.\nHow are you?"),
         };
         assert_eq!(mark, Mark::from_string(&mark.to_string())?);
+
         Ok(())
     }
 
