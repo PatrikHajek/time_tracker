@@ -119,7 +119,7 @@ fn unmark(config: &Config) -> Result<(), Box<dyn Error>> {
 
     if let Some(mark) = session.unmark() {
         session.save()?;
-        println!("Removed last mark:\n{}", mark.to_string());
+        println!("Removed last mark:\n{}", mark.to_line());
     } else {
         println!("Cannot remove the first mark");
     }
