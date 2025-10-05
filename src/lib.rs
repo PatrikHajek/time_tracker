@@ -148,6 +148,7 @@ fn tag(config: &Config, tag: &Tag) -> Result<(), Box<dyn Error>> {
 
     let was_added = session.tag(&tag);
     session.save()?;
+    // TODO: Improve output.
     if was_added {
         println!("Added tag: {tag:?}");
     } else {
