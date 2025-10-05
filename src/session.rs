@@ -1100,6 +1100,24 @@ mod tests {
     }
 
     #[test]
+    fn mark_from_string_fails_if_multiple_attributes_are_specified() -> Result<(), Box<dyn Error>> {
+        let dt = DateTime::now();
+        let contents = format!(
+            "\
+                {MARK_HEADING_PREFIX}{}\n\
+                \n\
+                {LABEL_END}\n\
+                {LABEL_SKIP}\n\
+                \n\
+                This is some content.\n\
+                ",
+            dt.to_formatted_pretty()
+        );
+        assert!(Mark::from_string(&contents).is_err());
+        Ok(())
+    }
+
+    #[test]
     fn mark_to_string_works() -> Result<(), Box<dyn Error>> {
         let dt = DateTime::now();
         let mark = Mark {
