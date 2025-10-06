@@ -12,7 +12,7 @@ const SESSION_TITLE: &str = "Session";
 const MARKS_HEADING: &str = "## Marks";
 const MARK_HEADING_PREFIX: &str = "### ";
 const LABEL_PREFIX: &str = "- ";
-// TODO: Rename.
+// TODO: Change to "- stop"? Will require renaming all labels to that.
 const LABEL_END: &str = "- end";
 const LABEL_SKIP: &str = "- skip";
 const LABEL_TAG: &str = "- tag";
