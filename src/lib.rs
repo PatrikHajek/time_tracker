@@ -113,9 +113,9 @@ fn attribute(config: &Config, attribute: Attribute) -> Result<(), Box<dyn Error>
         return Err("no active session found")?;
     };
 
-    session.set_attribute(attribute);
+    session.set_attribute(attribute.to_owned());
     session.save()?;
-    // println!("Set attribute: {attribute:?}");
+    println!("Set attribute: {attribute:?}");
     Ok(())
 }
 

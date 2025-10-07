@@ -580,7 +580,8 @@ mod tests {
         assert_eq!(lines[5], mark_end.to_line());
 
         session_third.marks.pop();
-        session_third.stop(&DateTime::now()).unwrap();
+        session_third.mark(&DateTime::now()).unwrap();
+        session_third.set_attribute(Attribute::Stop);
         let mark = &mut session_third.marks[1];
         mark.date = mark_end.date;
         let mark_end = session_third.marks.last().unwrap();
@@ -675,7 +676,8 @@ mod tests {
         };
         let mut session = Session::new(&config, &DateTime::now());
         assert_eq!(session.end(), session.marks.last().unwrap().date);
-        session.stop(&DateTime::now()).unwrap();
+        session.mark(&DateTime::now()).unwrap();
+        session.set_attribute(Attribute::Stop);
         session.marks.last_mut().unwrap().date = testing::now_plus_secs(30);
         assert_eq!(session.end(), session.marks.last().unwrap().date);
     }
@@ -688,7 +690,8 @@ mod tests {
         let mut session = Session::new(&config, &DateTime::now());
         assert!(session.is_active());
         assert!(session.marks.last().unwrap().attribute != Attribute::Stop);
-        session.stop(&DateTime::now()).unwrap();
+        session.mark(&DateTime::now()).unwrap();
+        session.set_attribute(Attribute::Stop);
         assert!(!session.is_active());
         assert!(session.marks.last().unwrap().attribute == Attribute::Stop);
     }
@@ -754,7 +757,8 @@ mod tests {
             sessions_path: PathBuf::from("sessions"),
         };
         let mut session = Session::new(&config, &DateTime::now());
-        session.stop(&DateTime::now()).unwrap();
+        session.mark(&DateTime::now()).unwrap();
+        session.set_attribute(Attribute::Stop);
         let clone = session.clone();
         assert!(session.mark(&DateTime::now()).is_err());
         assert_eq!(session, clone);
