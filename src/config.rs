@@ -1,4 +1,8 @@
-use crate::{date_time::DateTime, get_git_branch_name, resolve_path, session::Tag};
+use crate::{
+    date_time::DateTime,
+    get_git_branch_name, resolve_path,
+    session::{Attribute, Tag},
+};
 use std::{error::Error, fs, io, path::PathBuf};
 
 const CONFIG_PATH: &str = "~/.timetracker.toml";
@@ -52,13 +56,12 @@ impl Config {
 #[derive(PartialEq, Debug)]
 pub enum Action {
     Start { date: DateTime },
-    Stop { date: DateTime },
-    Skip,
     Mark { date: DateTime },
     Remark { date: DateTime },
     Unmark,
     Path,
     View,
+    Attribute { attribute: Attribute },
     Tag { tag: Tag },
     Untag { tag: Tag },
     Write { text: String },
@@ -78,21 +81,6 @@ impl Action {
                 },
                 _ => return Err("too many arguments")?,
             },
-            "stop" => match args.len() {
-                0 => Action::Stop {
-                    date: DateTime::now(),
-                },
-                1 => Action::Stop {
-                    date: DateTime::now().modify(&args[0])?,
-                },
-                _ => return Err("too many arguments")?,
-            },
-            "skip" => {
-                if args.len() != 0 {
-                    return Err("too many arguments")?;
-                }
-                Action::Skip
-            }
             "mark" => match args.len() {
                 0 => Action::Mark {
                     date: DateTime::now(),
@@ -129,6 +117,13 @@ impl Action {
                 }
                 Action::View
             }
+            "attribute" => match args.len() {
+                0 => Err("no attribute specified")?,
+                1 => Action::Attribute {
+                    attribute: Attribute::from_text(&args[0])?,
+                },
+                _ => Err("too many arguments")?,
+            },
             "tag" | "untag" => {
                 if args.len() == 0 {
                     return Err("no label specified")?;
@@ -205,24 +200,6 @@ mod tests {
         assert!(Action::build("start", &[String::from("hello")]).is_err());
 
         assert_eq!(
-            Action::build("stop", &[])?,
-            Action::Stop {
-                date: DateTime::now()
-            }
-        );
-        assert_eq!(
-            Action::build("stop", &[String::from("0m")])?,
-            Action::Stop {
-                date: DateTime::now()
-            }
-        );
-        assert!(Action::build("stop", &[String::from("0m"), String::from("hello")]).is_err());
-        assert!(Action::build("stop", &[String::from("hello")]).is_err());
-
-        assert_eq!(Action::build("skip", &[])?, Action::Skip);
-        assert!(Action::build("skip", &[String::from("hello")]).is_err());
-
-        assert_eq!(
             Action::build("mark", &[])?,
             Action::Mark {
                 date: DateTime::now()
@@ -257,6 +234,16 @@ mod tests {
 
         assert_eq!(Action::build("view", &[])?, Action::View);
         assert!(Action::build("view", &[String::from("hello")]).is_err());
+
+        assert!(Action::build("attribute", &[]).is_err());
+        assert!(Action::build("attribute", &[String::from("hello")]).is_err());
+        assert_eq!(
+            Action::build("attribute", &[String::from("skip")])?,
+            Action::Attribute {
+                attribute: Attribute::Skip
+            }
+        );
+        assert!(Action::build("attribute", &[String::from("skip"), String::from("skip")]).is_err());
 
         assert!(Action::build("tag", &[]).is_err());
         assert_eq!(

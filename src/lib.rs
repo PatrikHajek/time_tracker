@@ -1,6 +1,6 @@
 use config::{Action, Config};
 use date_time::DateTime;
-use session::{Aggregator, Session, SessionFile, Tag};
+use session::{Aggregator, Attribute, Session, SessionFile, Tag};
 use std::{env, error::Error, fs, io, path::PathBuf, process::Command};
 
 mod config;
@@ -15,13 +15,12 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn Error>> {
 
     let out = match action {
         Action::Start { date } => start(&config, &date),
-        Action::Stop { date } => stop(&config, &date),
-        Action::Skip => skip(&config),
         Action::Mark { date } => mark(&config, &date),
         Action::Remark { date } => remark(&config, &date),
         Action::Unmark => unmark(&config),
         Action::Path => path(&config),
         Action::View => view(&config),
+        Action::Attribute { attribute: attr } => attribute(&config, attr),
         Action::Tag { tag: tag_ } => tag(&config, &tag_),
         Action::Untag { tag } => untag(&config, &tag),
         Action::Write { text } => write(&config, &text),
@@ -56,37 +55,6 @@ fn start(config: &Config, date: &DateTime) -> Result<(), Box<dyn Error>> {
     };
     fs::write(&path, &contents).map_err(|_| "session directory doesn't exist")?;
     println!("Started: {}", &date.to_formatted_time());
-    Ok(())
-}
-
-fn stop(config: &Config, date: &DateTime) -> Result<(), Box<dyn Error>> {
-    let Some(mut session) = Session::get_last(&config)? else {
-        return Err("no active session found")?;
-    };
-
-    session.stop(&date)?;
-    session.save()?;
-    println!(
-        "Stopped: {}\n{}",
-        &date.to_formatted_time(),
-        &Aggregator::build(&config)?
-            .view()
-            .lines()
-            .skip(1)
-            .fold(String::new(), |acc, val| acc + val + "\n")
-            .trim_end_matches("\n")
-    );
-    Ok(())
-}
-
-fn skip(config: &Config) -> Result<(), Box<dyn Error>> {
-    let Some(mut session) = Session::get_last(&config)? else {
-        return Err("no active session found")?;
-    };
-
-    session.skip();
-    session.save()?;
-    println!("Skipped current mark");
     Ok(())
 }
 
@@ -137,6 +105,17 @@ fn path(config: &Config) -> Result<(), Box<dyn Error>> {
 fn view(config: &Config) -> Result<(), Box<dyn Error>> {
     let aggregator = Aggregator::build(&config)?;
     println!("{}", aggregator.view());
+    Ok(())
+}
+
+fn attribute(config: &Config, attribute: Attribute) -> Result<(), Box<dyn Error>> {
+    let Some(mut session) = Session::get_last(&config)? else {
+        return Err("no active session found")?;
+    };
+
+    session.set_attribute(attribute.to_owned());
+    session.save()?;
+    println!("Set attribute: {attribute:?}");
     Ok(())
 }
 

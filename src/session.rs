@@ -12,8 +12,7 @@ const SESSION_TITLE: &str = "Session";
 const MARKS_HEADING: &str = "## Marks";
 const MARK_HEADING_PREFIX: &str = "### ";
 const LABEL_PREFIX: &str = "- ";
-// TODO: Change to "- stop"? Will require renaming all labels to that.
-const LABEL_END: &str = "- end";
+const LABEL_STOP: &str = "- stop";
 const LABEL_SKIP: &str = "- skip";
 const LABEL_TAG: &str = "- tag";
 const LABEL_TAG_SURROUND: &str = "`";
@@ -214,24 +213,6 @@ impl Session {
         acc
     }
 
-    pub fn stop(&mut self, dt: &DateTime) -> Result<(), &'static str> {
-        if !self.is_active() {
-            return Err("session already ended");
-        }
-        let mut mark = Mark::new(&dt.date);
-        mark.attribute = Attribute::Stop;
-        self.marks.push(mark);
-        Ok(())
-    }
-
-    pub fn skip(&mut self) {
-        let mark = self
-            .marks
-            .last_mut()
-            .expect("session must always have at least one mark");
-        mark.attribute = Attribute::Skip;
-    }
-
     pub fn mark(&mut self, dt: &DateTime) -> Result<(), &'static str> {
         if !self.is_active() {
             return Err("can't mark, session has already ended");
@@ -257,6 +238,13 @@ impl Session {
         } else {
             return None;
         }
+    }
+
+    pub fn set_attribute(&mut self, attribute: Attribute) {
+        self.marks
+            .last_mut()
+            .expect("session must always have at least one mark")
+            .attribute = attribute;
     }
 
     pub fn tag(&mut self, tag: &Tag) -> bool {
@@ -449,9 +437,19 @@ pub enum Attribute {
 }
 
 impl Attribute {
+    pub fn from_text(text: &str) -> Result<Attribute, &'static str> {
+        const ATTRIBUTE_NONE: &str = "none";
+        let attribute = Attribute::from_line(&format!("{LABEL_PREFIX}{text}"));
+        if attribute != Attribute::None || text == ATTRIBUTE_NONE {
+            Ok(attribute)
+        } else {
+            Err("failed to parse attribute")
+        }
+    }
+
     fn from_line(text: &str) -> Attribute {
         match text.trim() {
-            LABEL_END => Attribute::Stop,
+            LABEL_STOP => Attribute::Stop,
             LABEL_SKIP => Attribute::Skip,
             _ => Attribute::None,
         }
@@ -459,7 +457,7 @@ impl Attribute {
 
     fn to_line(&self) -> String {
         match self {
-            Attribute::Stop => LABEL_END.to_owned(),
+            Attribute::Stop => LABEL_STOP.to_owned(),
             Attribute::Skip => LABEL_SKIP.to_owned(),
             Attribute::None => String::new(),
         }
@@ -582,7 +580,8 @@ mod tests {
         assert_eq!(lines[5], mark_end.to_line());
 
         session_third.marks.pop();
-        session_third.stop(&DateTime::now()).unwrap();
+        session_third.mark(&DateTime::now()).unwrap();
+        session_third.set_attribute(Attribute::Stop);
         let mark = &mut session_third.marks[1];
         mark.date = mark_end.date;
         let mark_end = session_third.marks.last().unwrap();
@@ -677,7 +676,8 @@ mod tests {
         };
         let mut session = Session::new(&config, &DateTime::now());
         assert_eq!(session.end(), session.marks.last().unwrap().date);
-        session.stop(&DateTime::now()).unwrap();
+        session.mark(&DateTime::now()).unwrap();
+        session.set_attribute(Attribute::Stop);
         session.marks.last_mut().unwrap().date = testing::now_plus_secs(30);
         assert_eq!(session.end(), session.marks.last().unwrap().date);
     }
@@ -690,14 +690,15 @@ mod tests {
         let mut session = Session::new(&config, &DateTime::now());
         assert!(session.is_active());
         assert!(session.marks.last().unwrap().attribute != Attribute::Stop);
-        session.stop(&DateTime::now()).unwrap();
+        session.mark(&DateTime::now()).unwrap();
+        session.set_attribute(Attribute::Stop);
         assert!(!session.is_active());
         assert!(session.marks.last().unwrap().attribute == Attribute::Stop);
     }
 
     // It ignores `mark_first` and counts to current time, so `mark_second` is the final time.
     #[test]
-    fn session_get_time_ignores_marks_if_they_have_label_skip() {
+    fn session_get_time_ignores_marks_if_they_are_skipped() {
         let mut mark_first = Mark::new(&testing::now_plus_secs(-3 * 60 * 60));
         mark_first.attribute = Attribute::Skip;
         let mark_second = Mark::new(&testing::now_plus_secs(-54 * 60 - 10)); // 54m 10s
@@ -710,7 +711,7 @@ mod tests {
     }
 
     #[test]
-    fn session_get_time_ignores_current_time_if_last_mark_has_label_skip() {
+    fn session_get_time_ignores_current_time_if_last_mark_is_skipped() {
         let mark_first = Mark::new(&testing::now_plus_secs(-3 * 60 * 60));
         let mut mark_second = Mark::new(&testing::now_plus_secs(-1 * 60 * 60 - 33 * 60 - 20)); // 1h 33m 20s
         mark_second.attribute = Attribute::Skip;
@@ -719,56 +720,6 @@ mod tests {
             marks: vec![mark_first, mark_second],
         };
         assert_eq!(session.get_time(), (1 * 60 * 60 + 26 * 60 + 40) * 1000);
-    }
-
-    #[test]
-    fn session_stop_works() {
-        let config = Config {
-            sessions_path: PathBuf::from("sessions"),
-        };
-        let mut session = Session::new(&config, &DateTime::now());
-        let mut clone = session.clone();
-        session.stop(&DateTime::now()).unwrap();
-        let dt = DateTime::now();
-        let mut mark = Mark::new(&dt.date);
-        mark.attribute = Attribute::Stop;
-        clone.marks.push(mark);
-        assert_eq!(session, clone);
-    }
-
-    #[test]
-    fn cannot_stop_when_session_ended() {
-        let config = Config {
-            sessions_path: PathBuf::from("sessions"),
-        };
-        let mut session = Session::new(&config, &DateTime::now());
-        session.stop(&DateTime::now()).unwrap();
-        let clone = session.clone();
-        assert!(session.stop(&DateTime::now()).is_err());
-        assert_eq!(session, clone);
-    }
-
-    #[test]
-    fn session_skip_works() {
-        let config = Config {
-            sessions_path: PathBuf::from("sessions"),
-        };
-        let mut session = Session::new(&config, &DateTime::now());
-        assert_eq!(session.marks.last_mut().unwrap().attribute, Attribute::None);
-        session.skip();
-        assert_eq!(session.marks.last_mut().unwrap().attribute, Attribute::Skip);
-    }
-
-    #[test]
-    fn session_skip_overwrites_stop() {
-        let config = Config {
-            sessions_path: PathBuf::from("sessions"),
-        };
-        let mut session = Session::new(&config, &DateTime::now());
-        session.stop(&DateTime::now()).unwrap();
-        assert_eq!(session.marks.last_mut().unwrap().attribute, Attribute::Stop);
-        session.skip();
-        assert_eq!(session.marks.last_mut().unwrap().attribute, Attribute::Skip);
     }
 
     #[test]
@@ -806,7 +757,8 @@ mod tests {
             sessions_path: PathBuf::from("sessions"),
         };
         let mut session = Session::new(&config, &DateTime::now());
-        session.stop(&DateTime::now()).unwrap();
+        session.mark(&DateTime::now()).unwrap();
+        session.set_attribute(Attribute::Stop);
         let clone = session.clone();
         assert!(session.mark(&DateTime::now()).is_err());
         assert_eq!(session, clone);
@@ -846,6 +798,17 @@ mod tests {
         assert_eq!(session.unmark(), Some(mark_last));
         assert_eq!(session.marks.len(), 1);
         assert_eq!(session.marks.last().unwrap(), &mark_first);
+    }
+
+    #[test]
+    fn session_set_attribute_works() {
+        let config = Config {
+            sessions_path: PathBuf::from("sessions"),
+        };
+        let mut session = Session::new(&config, &DateTime::now());
+        assert_eq!(session.marks.last().unwrap().attribute, Attribute::None);
+        session.set_attribute(Attribute::Skip);
+        assert_eq!(session.marks.last().unwrap().attribute, Attribute::Skip);
     }
 
     #[test]
@@ -932,7 +895,7 @@ mod tests {
                 \n\
                 {MARK_HEADING_PREFIX}{}\n\
                 \n\
-                {LABEL_END}\n\
+                {LABEL_STOP}\n\
                 ",
             mark_first_dt.to_formatted_pretty(),
             mark_second_dt.to_formatted_pretty(),
@@ -1083,7 +1046,7 @@ mod tests {
             "\
                 {MARK_HEADING_PREFIX}{}\n\
                 \n\
-                {LABEL_END}\n\
+                {LABEL_STOP}\n\
                 {LABEL_TAG} {LABEL_TAG_SURROUND}rust{LABEL_TAG_SURROUND}\n\
                 {LABEL_TAG} {LABEL_TAG_SURROUND}time tracker{LABEL_TAG_SURROUND}\n\
                 \n\
@@ -1108,7 +1071,7 @@ mod tests {
             "\
                 {MARK_HEADING_PREFIX}{}\n\
                 \n\
-                {LABEL_END}\n\
+                {LABEL_STOP}\n\
                 {LABEL_SKIP}\n\
                 \n\
                 This is some content.\n\
@@ -1131,7 +1094,7 @@ mod tests {
             "\
                 {MARK_HEADING_PREFIX}{}\n\
                 \n\
-                {LABEL_END}\n\
+                {LABEL_STOP}\n\
                 {LABEL_TAG} {LABEL_TAG_SURROUND}rust{LABEL_TAG_SURROUND}\n\
                 {LABEL_TAG} {LABEL_TAG_SURROUND}time tracker{LABEL_TAG_SURROUND}\n\
                 \n\
@@ -1184,8 +1147,18 @@ mod tests {
     }
 
     #[test]
+    fn attribute_from_text_works() -> Result<(), Box<dyn Error>> {
+        assert_eq!(Attribute::from_text("stop")?, Attribute::Stop);
+        assert_eq!(Attribute::from_text("skip")?, Attribute::Skip);
+        assert_eq!(Attribute::from_text("none")?, Attribute::None);
+        assert!(Attribute::from_text("hello").is_err());
+
+        Ok(())
+    }
+
+    #[test]
     fn attribute_from_line_works() {
-        assert_eq!(Attribute::from_line(LABEL_END), Attribute::Stop);
+        assert_eq!(Attribute::from_line(LABEL_STOP), Attribute::Stop);
         assert_eq!(Attribute::from_line(LABEL_SKIP), Attribute::Skip);
         assert_eq!(Attribute::from_line(LABEL_TAG), Attribute::None);
         assert_eq!(Attribute::from_line("- something else"), Attribute::None);
@@ -1194,7 +1167,7 @@ mod tests {
 
     #[test]
     fn attribute_to_line_works() {
-        assert_eq!(Attribute::Stop.to_line(), LABEL_END);
+        assert_eq!(Attribute::Stop.to_line(), LABEL_STOP);
         assert_eq!(Attribute::Skip.to_line(), LABEL_SKIP);
         assert_eq!(Attribute::None.to_line(), "");
     }
