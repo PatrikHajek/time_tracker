@@ -13,7 +13,7 @@ const MARKS_HEADING: &str = "## Marks";
 const MARK_HEADING_PREFIX: &str = "### ";
 const LABEL_PREFIX: &str = "- ";
 // TODO: Change to "- stop"? Will require renaming all labels to that.
-const LABEL_END: &str = "- end";
+const LABEL_STOP: &str = "- end";
 const LABEL_SKIP: &str = "- skip";
 const LABEL_TAG: &str = "- tag";
 const LABEL_TAG_SURROUND: &str = "`";
@@ -451,7 +451,7 @@ pub enum Attribute {
 impl Attribute {
     fn from_line(text: &str) -> Attribute {
         match text.trim() {
-            LABEL_END => Attribute::Stop,
+            LABEL_STOP => Attribute::Stop,
             LABEL_SKIP => Attribute::Skip,
             _ => Attribute::None,
         }
@@ -459,7 +459,7 @@ impl Attribute {
 
     fn to_line(&self) -> String {
         match self {
-            Attribute::Stop => LABEL_END.to_owned(),
+            Attribute::Stop => LABEL_STOP.to_owned(),
             Attribute::Skip => LABEL_SKIP.to_owned(),
             Attribute::None => String::new(),
         }
@@ -932,7 +932,7 @@ mod tests {
                 \n\
                 {MARK_HEADING_PREFIX}{}\n\
                 \n\
-                {LABEL_END}\n\
+                {LABEL_STOP}\n\
                 ",
             mark_first_dt.to_formatted_pretty(),
             mark_second_dt.to_formatted_pretty(),
@@ -1083,7 +1083,7 @@ mod tests {
             "\
                 {MARK_HEADING_PREFIX}{}\n\
                 \n\
-                {LABEL_END}\n\
+                {LABEL_STOP}\n\
                 {LABEL_TAG} {LABEL_TAG_SURROUND}rust{LABEL_TAG_SURROUND}\n\
                 {LABEL_TAG} {LABEL_TAG_SURROUND}time tracker{LABEL_TAG_SURROUND}\n\
                 \n\
@@ -1108,7 +1108,7 @@ mod tests {
             "\
                 {MARK_HEADING_PREFIX}{}\n\
                 \n\
-                {LABEL_END}\n\
+                {LABEL_STOP}\n\
                 {LABEL_SKIP}\n\
                 \n\
                 This is some content.\n\
@@ -1131,7 +1131,7 @@ mod tests {
             "\
                 {MARK_HEADING_PREFIX}{}\n\
                 \n\
-                {LABEL_END}\n\
+                {LABEL_STOP}\n\
                 {LABEL_TAG} {LABEL_TAG_SURROUND}rust{LABEL_TAG_SURROUND}\n\
                 {LABEL_TAG} {LABEL_TAG_SURROUND}time tracker{LABEL_TAG_SURROUND}\n\
                 \n\
@@ -1185,7 +1185,7 @@ mod tests {
 
     #[test]
     fn attribute_from_line_works() {
-        assert_eq!(Attribute::from_line(LABEL_END), Attribute::Stop);
+        assert_eq!(Attribute::from_line(LABEL_STOP), Attribute::Stop);
         assert_eq!(Attribute::from_line(LABEL_SKIP), Attribute::Skip);
         assert_eq!(Attribute::from_line(LABEL_TAG), Attribute::None);
         assert_eq!(Attribute::from_line("- something else"), Attribute::None);
@@ -1194,7 +1194,7 @@ mod tests {
 
     #[test]
     fn attribute_to_line_works() {
-        assert_eq!(Attribute::Stop.to_line(), LABEL_END);
+        assert_eq!(Attribute::Stop.to_line(), LABEL_STOP);
         assert_eq!(Attribute::Skip.to_line(), LABEL_SKIP);
         assert_eq!(Attribute::None.to_line(), "");
     }
