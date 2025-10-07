@@ -52,8 +52,6 @@ impl Config {
 #[derive(PartialEq, Debug)]
 pub enum Action {
     Start { date: DateTime },
-    Stop { date: DateTime },
-    Skip,
     Mark { date: DateTime },
     Remark { date: DateTime },
     Unmark,
@@ -78,21 +76,6 @@ impl Action {
                 },
                 _ => return Err("too many arguments")?,
             },
-            "stop" => match args.len() {
-                0 => Action::Stop {
-                    date: DateTime::now(),
-                },
-                1 => Action::Stop {
-                    date: DateTime::now().modify(&args[0])?,
-                },
-                _ => return Err("too many arguments")?,
-            },
-            "skip" => {
-                if args.len() != 0 {
-                    return Err("too many arguments")?;
-                }
-                Action::Skip
-            }
             "mark" => match args.len() {
                 0 => Action::Mark {
                     date: DateTime::now(),
@@ -203,24 +186,6 @@ mod tests {
         );
         assert!(Action::build("start", &[String::from("0m"), String::from("hello")]).is_err());
         assert!(Action::build("start", &[String::from("hello")]).is_err());
-
-        assert_eq!(
-            Action::build("stop", &[])?,
-            Action::Stop {
-                date: DateTime::now()
-            }
-        );
-        assert_eq!(
-            Action::build("stop", &[String::from("0m")])?,
-            Action::Stop {
-                date: DateTime::now()
-            }
-        );
-        assert!(Action::build("stop", &[String::from("0m"), String::from("hello")]).is_err());
-        assert!(Action::build("stop", &[String::from("hello")]).is_err());
-
-        assert_eq!(Action::build("skip", &[])?, Action::Skip);
-        assert!(Action::build("skip", &[String::from("hello")]).is_err());
 
         assert_eq!(
             Action::build("mark", &[])?,

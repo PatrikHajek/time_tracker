@@ -15,8 +15,6 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn Error>> {
 
     let out = match action {
         Action::Start { date } => start(&config, &date),
-        Action::Stop { date } => stop(&config, &date),
-        Action::Skip => skip(&config),
         Action::Mark { date } => mark(&config, &date),
         Action::Remark { date } => remark(&config, &date),
         Action::Unmark => unmark(&config),
@@ -56,37 +54,6 @@ fn start(config: &Config, date: &DateTime) -> Result<(), Box<dyn Error>> {
     };
     fs::write(&path, &contents).map_err(|_| "session directory doesn't exist")?;
     println!("Started: {}", &date.to_formatted_time());
-    Ok(())
-}
-
-fn stop(config: &Config, date: &DateTime) -> Result<(), Box<dyn Error>> {
-    let Some(mut session) = Session::get_last(&config)? else {
-        return Err("no active session found")?;
-    };
-
-    session.stop(&date)?;
-    session.save()?;
-    println!(
-        "Stopped: {}\n{}",
-        &date.to_formatted_time(),
-        &Aggregator::build(&config)?
-            .view()
-            .lines()
-            .skip(1)
-            .fold(String::new(), |acc, val| acc + val + "\n")
-            .trim_end_matches("\n")
-    );
-    Ok(())
-}
-
-fn skip(config: &Config) -> Result<(), Box<dyn Error>> {
-    let Some(mut session) = Session::get_last(&config)? else {
-        return Err("no active session found")?;
-    };
-
-    session.skip();
-    session.save()?;
-    println!("Skipped current mark");
     Ok(())
 }
 

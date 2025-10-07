@@ -213,24 +213,6 @@ impl Session {
         acc
     }
 
-    pub fn stop(&mut self, dt: &DateTime) -> Result<(), &'static str> {
-        if !self.is_active() {
-            return Err("session already ended");
-        }
-        let mut mark = Mark::new(&dt.date);
-        mark.attribute = Attribute::Stop;
-        self.marks.push(mark);
-        Ok(())
-    }
-
-    pub fn skip(&mut self) {
-        let mark = self
-            .marks
-            .last_mut()
-            .expect("session must always have at least one mark");
-        mark.attribute = Attribute::Skip;
-    }
-
     pub fn mark(&mut self, dt: &DateTime) -> Result<(), &'static str> {
         if !self.is_active() {
             return Err("can't mark, session has already ended");
@@ -718,56 +700,6 @@ mod tests {
             marks: vec![mark_first, mark_second],
         };
         assert_eq!(session.get_time(), (1 * 60 * 60 + 26 * 60 + 40) * 1000);
-    }
-
-    #[test]
-    fn session_stop_works() {
-        let config = Config {
-            sessions_path: PathBuf::from("sessions"),
-        };
-        let mut session = Session::new(&config, &DateTime::now());
-        let mut clone = session.clone();
-        session.stop(&DateTime::now()).unwrap();
-        let dt = DateTime::now();
-        let mut mark = Mark::new(&dt.date);
-        mark.attribute = Attribute::Stop;
-        clone.marks.push(mark);
-        assert_eq!(session, clone);
-    }
-
-    #[test]
-    fn cannot_stop_when_session_ended() {
-        let config = Config {
-            sessions_path: PathBuf::from("sessions"),
-        };
-        let mut session = Session::new(&config, &DateTime::now());
-        session.stop(&DateTime::now()).unwrap();
-        let clone = session.clone();
-        assert!(session.stop(&DateTime::now()).is_err());
-        assert_eq!(session, clone);
-    }
-
-    #[test]
-    fn session_skip_works() {
-        let config = Config {
-            sessions_path: PathBuf::from("sessions"),
-        };
-        let mut session = Session::new(&config, &DateTime::now());
-        assert_eq!(session.marks.last_mut().unwrap().attribute, Attribute::None);
-        session.skip();
-        assert_eq!(session.marks.last_mut().unwrap().attribute, Attribute::Skip);
-    }
-
-    #[test]
-    fn session_skip_overwrites_stop() {
-        let config = Config {
-            sessions_path: PathBuf::from("sessions"),
-        };
-        let mut session = Session::new(&config, &DateTime::now());
-        session.stop(&DateTime::now()).unwrap();
-        assert_eq!(session.marks.last_mut().unwrap().attribute, Attribute::Stop);
-        session.skip();
-        assert_eq!(session.marks.last_mut().unwrap().attribute, Attribute::Skip);
     }
 
     #[test]
