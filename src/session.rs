@@ -12,6 +12,7 @@ const SESSION_TITLE: &str = "Session";
 const MARKS_HEADING: &str = "## Marks";
 const MARK_HEADING_PREFIX: &str = "### ";
 const LABEL_PREFIX: &str = "- ";
+// TODO: Change to "- stop"? Will require renaming all labels to that.
 const LABEL_END: &str = "- end";
 const LABEL_SKIP: &str = "- skip";
 const LABEL_TAG: &str = "- tag";
@@ -50,7 +51,8 @@ impl Aggregator {
             .expect("must always have at least one session");
         assert!(session.marks.len() > 0);
         assert!(
-            !(session.marks.len() == 1 && session.marks.last().unwrap().has_label(&Label::End))
+            !(session.marks.len() == 1
+                && session.marks.last().unwrap().attribute == Attribute::Stop)
         );
 
         // TODO: Write as many of these as functions in their relevant structs.
@@ -76,7 +78,7 @@ impl Aggregator {
         } else {
             "0"
         };
-        let mark_last_contents = mark_last.to_string();
+        let mark_last_contents = mark_last.to_line();
 
         let mut str = String::new();
         if !session.is_active() {
@@ -190,23 +192,23 @@ impl Session {
     }
 
     pub fn is_active(&self) -> bool {
-        !self
-            .marks
+        self.marks
             .last()
             .expect("must always have at least one mark")
-            .has_label(&Label::End)
+            .attribute
+            != Attribute::Stop
     }
 
     fn get_time(&self) -> u64 {
         let mut acc = 0;
         let mut mark_preceding = &self.marks[0];
         for mark in self.marks.iter().skip(1) {
-            if !mark_preceding.has_label(&Label::Skip) {
+            if mark_preceding.attribute != Attribute::Skip {
                 acc += DateTime::get_time(&mark_preceding.date, &mark.date);
             }
             mark_preceding = &mark;
         }
-        if self.is_active() && !mark_preceding.has_label(&Label::Skip) {
+        if self.is_active() && mark_preceding.attribute != Attribute::Skip {
             acc += DateTime::get_time(&mark_preceding.date, &DateTime::now().date);
         }
         acc
@@ -217,9 +219,17 @@ impl Session {
             return Err("session already ended");
         }
         let mut mark = Mark::new(&dt.date);
-        mark.add_label(&Label::End);
+        mark.attribute = Attribute::Stop;
         self.marks.push(mark);
         Ok(())
+    }
+
+    pub fn skip(&mut self) {
+        let mark = self
+            .marks
+            .last_mut()
+            .expect("session must always have at least one mark");
+        mark.attribute = Attribute::Skip;
     }
 
     pub fn mark(&mut self, dt: &DateTime) -> Result<(), &'static str> {
@@ -249,18 +259,20 @@ impl Session {
         }
     }
 
-    pub fn label(&mut self, label: &Label) -> bool {
+    pub fn tag(&mut self, tag: &Tag) -> bool {
         self.marks
             .last_mut()
             .expect("session must always have at least one mark")
-            .add_label(&label)
+            .tags
+            .insert(tag.to_owned())
     }
 
-    pub fn unlabel(&mut self, label: &Label) -> bool {
+    pub fn untag(&mut self, tag: &Tag) -> bool {
         self.marks
             .last_mut()
             .expect("session must always have at least one mark")
-            .remove_label(&label)
+            .tags
+            .remove(&tag)
     }
 
     /// Returns error if the content of the current mark is not empty.
@@ -289,7 +301,7 @@ impl Session {
         for line in marks_contents.lines() {
             if line.starts_with(MARK_HEADING_PREFIX) {
                 let contents = SessionFile::get_heading_with_contents(&line, &marks_contents);
-                let mark = Mark::from_string(&contents)?;
+                let mark = Mark::from_line(&contents)?;
                 marks.push(mark);
             }
         }
@@ -313,7 +325,7 @@ impl Session {
             "
         );
         for mark in &self.marks {
-            contents += &mark.to_string();
+            contents += &mark.to_line();
             contents += "\n\n";
         }
 
@@ -325,7 +337,9 @@ impl Session {
 #[derive(PartialEq, Debug, Clone)]
 pub struct Mark {
     date: chrono::DateTime<chrono::Local>,
-    labels: HashSet<Label>,
+    attribute: Attribute,
+    tags: HashSet<Tag>,
+    // TODO: Rename to text.
     contents: String,
 }
 
@@ -333,22 +347,10 @@ impl Mark {
     fn new(date: &chrono::DateTime<chrono::Local>) -> Mark {
         Mark {
             date: date.clone(),
-            labels: HashSet::new(),
+            attribute: Attribute::None,
+            tags: HashSet::new(),
             contents: String::new(),
         }
-    }
-
-    // TODO: remove all label manipulation methods and use the labels set directly?
-    fn add_label(&mut self, label: &Label) -> bool {
-        self.labels.insert(label.clone())
-    }
-
-    fn remove_label(&mut self, label: &Label) -> bool {
-        self.labels.remove(&label)
-    }
-
-    fn has_label(&self, label: &Label) -> bool {
-        self.labels.contains(&label)
     }
 
     /// Overwrites the content of this mark.
@@ -360,7 +362,7 @@ impl Mark {
         self.contents = String::new();
     }
 
-    fn from_string(contents: &str) -> Result<Mark, Box<dyn Error>> {
+    fn from_line(contents: &str) -> Result<Mark, Box<dyn Error>> {
         let contents = contents.trim();
         let date = contents
             .lines()
@@ -373,17 +375,28 @@ impl Mark {
             .fold(String::new(), |acc, val| acc + "\n" + val)
             .trim()
             .to_owned();
-        let mut labels: HashSet<Label> = HashSet::new();
+        let mut attribute = Attribute::None;
+        let mut tags: HashSet<Tag> = HashSet::new();
         if contents_without_heading.starts_with(LABEL_PREFIX) {
             for line in contents_without_heading.lines() {
                 if !line.starts_with(LABEL_PREFIX) {
                     break;
                 }
-                labels.insert(Label::from_string(&line)?);
+                let attr = Attribute::from_line(&line);
+                if attr != Attribute::None {
+                    if attribute == Attribute::None {
+                        attribute = attr;
+                    } else {
+                        return Err("multiple attributes per mark are not allowed")?;
+                    }
+                } else {
+                    tags.insert(Tag::from_line(&line)?);
+                }
             }
+            let labels_len = tags.len() + if attribute != Attribute::None { 1 } else { 0 };
             contents_without_heading = contents_without_heading
                 .lines()
-                .skip(labels.len())
+                .skip(labels_len)
                 .collect::<Vec<&str>>()
                 .join("\n")
                 .trim()
@@ -391,22 +404,32 @@ impl Mark {
         }
         Ok(Mark {
             date,
-            labels,
+            attribute,
+            tags,
             contents: contents_without_heading,
         })
     }
 
-    pub fn to_string(&self) -> String {
+    pub fn to_line(&self) -> String {
         let mut contents = format!(
             "{MARK_HEADING_PREFIX}{}",
             DateTime::new(&self.date).to_formatted_pretty()
         );
-        if !self.labels.is_empty() {
+        if self.attribute != Attribute::None || !self.tags.is_empty() {
             contents += "\n";
-            contents += &self
-                .labels
-                .iter()
-                .fold(String::new(), |acc, val| acc + "\n" + &val.to_string());
+            if self.attribute != Attribute::None {
+                contents += "\n";
+                contents += &self.attribute.to_line();
+            }
+            if !self.tags.is_empty() {
+                // TODO: Put all tags on the same line?
+                let mut tags: Vec<&Tag> = self.tags.iter().collect();
+                // Sorts alphabetically.
+                tags.sort_by(|a, b| a.text.cmp(&b.text));
+                contents += &tags
+                    .iter()
+                    .fold(String::new(), |acc, val| acc + "\n" + &val.to_line());
+            }
         }
         let trimmed = self.contents.trim();
         if !trimmed.is_empty() {
@@ -417,77 +440,74 @@ impl Mark {
     }
 }
 
-#[derive(Eq, Hash, PartialEq, Debug, Clone)]
-pub enum Label {
-    End,
+#[derive(PartialEq, Debug, Clone)]
+pub enum Attribute {
+    Stop,
     Skip,
-    Tag { text: String },
+    // TODO: Remove?
+    None,
 }
 
-impl Label {
-    pub fn from_args(args: &[String]) -> Result<Label, String> {
-        if args.is_empty() {
-            return Err("not enough arguments")?;
-        }
-
-        let name = LABEL_PREFIX.to_owned() + args[0].trim();
-        if name == LABEL_END {
-            if args.len() > 1 {
-                return Err("too many arguments")?;
-            }
-            return Ok(Label::End);
-        } else if name == LABEL_SKIP {
-            if args.len() > 1 {
-                return Err("too many arguments")?;
-            }
-            return Ok(Label::Skip);
-        } else if name.starts_with(LABEL_TAG) {
-            if args.len() < 2 {
-                return Err("not enough arguments")?;
-            } else if args.len() > 2 {
-                return Err("too many arguments")?;
-            }
-            let tag = Label::Tag {
-                text: args[1].clone(),
-            };
-            return Ok(tag);
-        } else {
-            return Err(format!("couldn't parse label from args '{:?}'", &args));
+impl Attribute {
+    fn from_line(text: &str) -> Attribute {
+        match text.trim() {
+            LABEL_END => Attribute::Stop,
+            LABEL_SKIP => Attribute::Skip,
+            _ => Attribute::None,
         }
     }
 
-    fn from_string(text: &str) -> Result<Label, String> {
+    fn to_line(&self) -> String {
+        match self {
+            Attribute::Stop => LABEL_END.to_owned(),
+            Attribute::Skip => LABEL_SKIP.to_owned(),
+            Attribute::None => String::new(),
+        }
+    }
+}
+
+#[derive(Eq, Hash, PartialEq, Debug, Clone)]
+pub struct Tag {
+    text: String,
+}
+
+// TODO: Make from_line use from_text.
+impl Tag {
+    pub fn from_text(text: &str) -> Result<Tag, String> {
         let text = text.trim();
-        if text == LABEL_END {
-            return Ok(Label::End);
-        } else if text == LABEL_SKIP {
-            return Ok(Label::Skip);
-        } else if text.starts_with(&format!("{LABEL_TAG} {LABEL_TAG_SURROUND}"))
+        if text.is_empty() {
+            Err("tag cannot be empty")?
+        } else if text.contains(LABEL_TAG_SURROUND) {
+            Err(format!("invalid character \"{LABEL_TAG_SURROUND}\""))
+        } else {
+            Ok(Tag {
+                text: text.to_owned(),
+            })
+        }
+    }
+
+    fn from_line(text: &str) -> Result<Tag, String> {
+        if text.starts_with(&format!("{LABEL_TAG} {LABEL_TAG_SURROUND}"))
             && text.ends_with(LABEL_TAG_SURROUND)
         {
             let start = format!("{LABEL_TAG} {LABEL_TAG_SURROUND}").len();
             let end = text.len() - LABEL_TAG_SURROUND.len();
             let tag_text = text[start..end].trim().to_owned();
             if tag_text.is_empty() {
-                return Err("label tag cannot be empty")?;
+                return Err("tag cannot be empty")?;
             }
-            let tag = Label::Tag { text: tag_text };
+            let tag = Tag { text: tag_text };
             return Ok(tag);
         } else {
-            return Err(format!("couldn't parse label from string '{}'", text));
+            return Err(format!("couldn't parse tag from string '{}'", text));
         }
     }
 
-    fn to_string(&self) -> String {
-        match self {
-            Label::End => LABEL_END.to_owned(),
-            Label::Skip => LABEL_SKIP.to_owned(),
-            Label::Tag { text } => {
-                // There shouldn't be a way to store empty string in Label::Tag.
-                assert!(!text.is_empty());
-                format!("{LABEL_TAG} {LABEL_TAG_SURROUND}{text}{LABEL_TAG_SURROUND}")
-            }
-        }
+    fn to_line(&self) -> String {
+        let text = &self.text;
+        // There shouldn't be a way to store an empty string in here.
+        assert!(!text.is_empty());
+        format!("{LABEL_TAG} {LABEL_TAG_SURROUND}{text}{LABEL_TAG_SURROUND}")
     }
 }
 
@@ -529,11 +549,7 @@ mod tests {
                 Mark::new(&DateTime::new(&testing::date_default()).plus_days(-9).date),
             ],
         };
-        session_first
-            .marks
-            .last_mut()
-            .unwrap()
-            .add_label(&Label::End);
+        session_first.marks.last_mut().unwrap().attribute = Attribute::Stop;
 
         let mut session_second = Session {
             path: session_third.path.clone(),
@@ -542,11 +558,7 @@ mod tests {
                 Mark::new(&DateTime::new(&testing::date_default()).plus_days(-1).date),
             ],
         };
-        session_second
-            .marks
-            .last_mut()
-            .unwrap()
-            .add_label(&Label::End);
+        session_second.marks.last_mut().unwrap().attribute = Attribute::Stop;
 
         let aggregator = Aggregator {
             sessions: vec![
@@ -567,7 +579,7 @@ mod tests {
         assert_ne!(lines[2], "Time: 1h 30m 0s");
         assert_ne!(lines[3], "Mark: 0");
         assert_eq!(lines[4], COMMAND_VIEW_MARK_CONTENTS_SEPARATOR);
-        assert_eq!(lines[5], mark_end.to_string());
+        assert_eq!(lines[5], mark_end.to_line());
 
         session_third.marks.pop();
         session_third.stop(&DateTime::now()).unwrap();
@@ -593,7 +605,7 @@ mod tests {
                 {COMMAND_VIEW_MARK_CONTENTS_SEPARATOR}\n\
                 {}\
                 ",
-                mark_end.to_string()
+                mark_end.to_line()
             )
         );
     }
@@ -677,17 +689,17 @@ mod tests {
         };
         let mut session = Session::new(&config, &DateTime::now());
         assert!(session.is_active());
-        assert!(!session.marks.last().unwrap().has_label(&Label::End));
+        assert!(session.marks.last().unwrap().attribute != Attribute::Stop);
         session.stop(&DateTime::now()).unwrap();
         assert!(!session.is_active());
-        assert!(session.marks.last().unwrap().has_label(&Label::End));
+        assert!(session.marks.last().unwrap().attribute == Attribute::Stop);
     }
 
     // It ignores `mark_first` and counts to current time, so `mark_second` is the final time.
     #[test]
     fn session_get_time_ignores_marks_if_they_have_label_skip() {
         let mut mark_first = Mark::new(&testing::now_plus_secs(-3 * 60 * 60));
-        mark_first.add_label(&Label::Skip);
+        mark_first.attribute = Attribute::Skip;
         let mark_second = Mark::new(&testing::now_plus_secs(-54 * 60 - 10)); // 54m 10s
         let mark_third = Mark::new(&testing::now_plus_secs(-10 * 60));
         let session = Session {
@@ -701,7 +713,7 @@ mod tests {
     fn session_get_time_ignores_current_time_if_last_mark_has_label_skip() {
         let mark_first = Mark::new(&testing::now_plus_secs(-3 * 60 * 60));
         let mut mark_second = Mark::new(&testing::now_plus_secs(-1 * 60 * 60 - 33 * 60 - 20)); // 1h 33m 20s
-        mark_second.add_label(&Label::Skip);
+        mark_second.attribute = Attribute::Skip;
         let session = Session {
             path: PathBuf::from("sessions"),
             marks: vec![mark_first, mark_second],
@@ -719,7 +731,7 @@ mod tests {
         session.stop(&DateTime::now()).unwrap();
         let dt = DateTime::now();
         let mut mark = Mark::new(&dt.date);
-        mark.add_label(&Label::End);
+        mark.attribute = Attribute::Stop;
         clone.marks.push(mark);
         assert_eq!(session, clone);
     }
@@ -734,6 +746,29 @@ mod tests {
         let clone = session.clone();
         assert!(session.stop(&DateTime::now()).is_err());
         assert_eq!(session, clone);
+    }
+
+    #[test]
+    fn session_skip_works() {
+        let config = Config {
+            sessions_path: PathBuf::from("sessions"),
+        };
+        let mut session = Session::new(&config, &DateTime::now());
+        assert_eq!(session.marks.last_mut().unwrap().attribute, Attribute::None);
+        session.skip();
+        assert_eq!(session.marks.last_mut().unwrap().attribute, Attribute::Skip);
+    }
+
+    #[test]
+    fn session_skip_overwrites_stop() {
+        let config = Config {
+            sessions_path: PathBuf::from("sessions"),
+        };
+        let mut session = Session::new(&config, &DateTime::now());
+        session.stop(&DateTime::now()).unwrap();
+        assert_eq!(session.marks.last_mut().unwrap().attribute, Attribute::Stop);
+        session.skip();
+        assert_eq!(session.marks.last_mut().unwrap().attribute, Attribute::Skip);
     }
 
     #[test]
@@ -814,7 +849,7 @@ mod tests {
     }
 
     #[test]
-    fn session_label_works() {
+    fn session_tag_works() {
         let config = Config {
             sessions_path: PathBuf::from("sessions"),
         };
@@ -822,13 +857,18 @@ mod tests {
         // To have at least 2 marks.
         session.mark(&DateTime::now()).unwrap();
         let mut clone = session.clone();
-        session.label(&Label::Skip);
-        clone.marks.last_mut().unwrap().add_label(&Label::Skip);
+        session.tag(&Tag::from_text("rust").unwrap());
+        clone
+            .marks
+            .last_mut()
+            .unwrap()
+            .tags
+            .insert(Tag::from_text("rust").unwrap().clone());
         assert_eq!(session, clone);
     }
 
     #[test]
-    fn session_unlabel_works() {
+    fn session_untag_works() {
         let config = Config {
             sessions_path: PathBuf::from("sessions"),
         };
@@ -836,8 +876,8 @@ mod tests {
         // To have at least 2 marks.
         session.mark(&DateTime::now()).unwrap();
         let clone = session.clone();
-        session.label(&Label::Skip);
-        session.unlabel(&Label::Skip);
+        session.tag(&Tag::from_text("rust").unwrap());
+        session.untag(&Tag::from_text("rust").unwrap());
         assert_eq!(session, clone);
     }
 
@@ -880,7 +920,7 @@ mod tests {
             date: mark_first.date.with_minute(23).unwrap(),
         };
         let mut mark_second = Mark::new(&mark_second_dt.date);
-        mark_second.add_label(&Label::End);
+        mark_second.attribute = Attribute::Stop;
 
         let contents = format!(
             "\
@@ -931,7 +971,8 @@ mod tests {
         };
         let mark_second = Mark {
             date: mark_second_dt.date,
-            labels: HashSet::new(),
+            attribute: Attribute::None,
+            tags: HashSet::new(),
             contents: String::from("I am the second mark!\nHi!\n"),
         };
         let config = Config {
@@ -972,12 +1013,14 @@ mod tests {
         let dt = DateTime::now();
         let mark_first = Mark {
             date: dt.date.with_hour(5).unwrap().with_minute(54).unwrap(),
-            labels: HashSet::new(),
+            attribute: Attribute::None,
+            tags: HashSet::new(),
             contents: String::from("feat/some-branch\n\nDid a few things"),
         };
         let mark_second = Mark {
             date: dt.date.with_hour(6).unwrap().with_minute(13).unwrap(),
-            labels: HashSet::new(),
+            attribute: Attribute::None,
+            tags: HashSet::new(),
             contents: String::from("feat/new-feature"),
         };
         let config = Config {
@@ -998,49 +1041,6 @@ mod tests {
         let dt = DateTime::now();
         let mark = Mark::new(&dt.date);
         assert_eq!(Mark::new(&dt.date), mark);
-    }
-
-    #[test]
-    fn mark_add_label_works() {
-        let dt = DateTime::now();
-        let mut mark = Mark::new(&dt.date);
-        mark.add_label(&Label::End);
-        let expected = Mark {
-            date: dt.date,
-            labels: HashSet::from_iter([Label::End]),
-            contents: String::new(),
-        };
-        assert_eq!(mark, expected);
-    }
-
-    #[test]
-    fn mark_add_label_does_not_add_duplicate_label() {
-        let dt = DateTime::now();
-        let mut mark = Mark::new(&dt.date);
-        mark.add_label(&Label::Skip);
-        let clone = mark.clone();
-        mark.add_label(&Label::Skip);
-        assert_eq!(mark, clone);
-    }
-
-    #[test]
-    fn mark_remove_label_works() {
-        let dt = DateTime::now();
-        let mut mark = Mark::new(&dt.date);
-        let clone = mark.clone();
-        mark.add_label(&Label::Skip);
-        mark.remove_label(&Label::Skip);
-        assert_eq!(mark, clone);
-        mark.remove_label(&Label::Skip);
-        assert_eq!(mark, clone);
-    }
-
-    #[test]
-    fn mark_has_label_works() {
-        let dt = DateTime::now();
-        let mut mark = Mark::new(&dt.date);
-        mark.add_label(&Label::End);
-        assert!(mark.has_label(&Label::End));
     }
 
     #[test]
@@ -1077,13 +1077,15 @@ mod tests {
     }
 
     #[test]
-    fn mark_from_string_works() {
+    fn mark_from_line_works() -> Result<(), Box<dyn Error>> {
         let dt = DateTime::now();
         let contents = format!(
             "\
                 {MARK_HEADING_PREFIX}{}\n\
                 \n\
                 {LABEL_END}\n\
+                {LABEL_TAG} {LABEL_TAG_SURROUND}rust{LABEL_TAG_SURROUND}\n\
+                {LABEL_TAG} {LABEL_TAG_SURROUND}time tracker{LABEL_TAG_SURROUND}\n\
                 \n\
                 This is some content.\n\
                 ",
@@ -1091,18 +1093,38 @@ mod tests {
         );
         let mark = Mark {
             date: dt.date,
-            labels: HashSet::from_iter([Label::End]),
+            attribute: Attribute::Stop,
+            tags: HashSet::from_iter([Tag::from_text("rust")?, Tag::from_text("time tracker")?]),
             contents: String::from("This is some content."),
         };
-        assert_eq!(Mark::from_string(&contents).unwrap(), mark);
+        assert_eq!(Mark::from_line(&contents).unwrap(), mark);
+        Ok(())
     }
 
     #[test]
-    fn mark_to_string_works() {
+    fn mark_from_line_fails_if_multiple_attributes_are_specified() {
+        let dt = DateTime::now();
+        let contents = format!(
+            "\
+                {MARK_HEADING_PREFIX}{}\n\
+                \n\
+                {LABEL_END}\n\
+                {LABEL_SKIP}\n\
+                \n\
+                This is some content.\n\
+                ",
+            dt.to_formatted_pretty()
+        );
+        assert!(Mark::from_line(&contents).is_err());
+    }
+
+    #[test]
+    fn mark_to_line_works() -> Result<(), Box<dyn Error>> {
         let dt = DateTime::now();
         let mark = Mark {
             date: dt.date,
-            labels: HashSet::from_iter([Label::End]),
+            attribute: Attribute::Stop,
+            tags: HashSet::from_iter([Tag::from_text("time tracker")?, Tag::from_text("rust")?]),
             contents: String::from("This is a content of a mark.\nHow are you?\n"),
         };
         let output = format!(
@@ -1110,87 +1132,114 @@ mod tests {
                 {MARK_HEADING_PREFIX}{}\n\
                 \n\
                 {LABEL_END}\n\
+                {LABEL_TAG} {LABEL_TAG_SURROUND}rust{LABEL_TAG_SURROUND}\n\
+                {LABEL_TAG} {LABEL_TAG_SURROUND}time tracker{LABEL_TAG_SURROUND}\n\
                 \n\
                 This is a content of a mark.\n\
                 How are you?\
                 ",
             dt.to_formatted_pretty()
         );
-        assert_eq!(mark.to_string(), output);
+        assert_eq!(mark.to_line(), output);
+        Ok(())
     }
 
     #[test]
-    fn label_from_args_works() -> Result<(), Box<dyn Error>> {
-        assert!(Label::from_args(&[]).is_err());
-        assert!(Label::from_args(&[String::from("hello")]).is_err());
+    fn mark_to_line_from_line_works() -> Result<(), Box<dyn Error>> {
+        let dt = DateTime::now();
 
-        assert_eq!(Label::from_args(&[String::from("end")])?, Label::End);
-        assert!(Label::from_args(&[String::from("end"), String::from("hello")]).is_err());
+        let mark = Mark {
+            date: dt.date,
+            attribute: Attribute::None,
+            tags: HashSet::new(),
+            contents: String::from("This is a content of a mark.\nHow are you?"),
+        };
+        assert_eq!(mark, Mark::from_line(&mark.to_line())?);
 
-        assert_eq!(Label::from_args(&[String::from("skip")])?, Label::Skip);
-        assert!(Label::from_args(&[String::from("skip"), String::from("hello")]).is_err());
+        let mark = Mark {
+            date: dt.date,
+            attribute: Attribute::Stop,
+            tags: HashSet::new(),
+            contents: String::from("This is a content of a mark.\nHow are you?"),
+        };
+        assert_eq!(mark, Mark::from_line(&mark.to_line())?);
 
-        assert!(Label::from_args(&[String::from("tag")]).is_err());
-        assert_eq!(
-            Label::from_args(&[String::from("tag"), String::from("rust")])?,
-            Label::Tag {
-                text: String::from("rust")
-            }
-        );
-        assert!(Label::from_args(&[
-            String::from("tag"),
-            String::from("rust"),
-            String::from("hello")
-        ])
-        .is_err());
+        let mark = Mark {
+            date: dt.date,
+            attribute: Attribute::None,
+            tags: HashSet::from_iter([Tag::from_text("rust")?, Tag::from_text("time tracker")?]),
+            contents: String::from("This is a content of a mark.\nHow are you?"),
+        };
+        assert_eq!(mark, Mark::from_line(&mark.to_line())?);
+
+        let mark = Mark {
+            date: dt.date,
+            attribute: Attribute::Stop,
+            tags: HashSet::from_iter([Tag::from_text("rust")?, Tag::from_text("time tracker")?]),
+            contents: String::from("This is a content of a mark.\nHow are you?"),
+        };
+        assert_eq!(mark, Mark::from_line(&mark.to_line())?);
 
         Ok(())
     }
 
     #[test]
-    fn label_from_string_works() {
-        assert_eq!(Label::from_string(LABEL_END).unwrap(), Label::End);
+    fn attribute_from_line_works() {
+        assert_eq!(Attribute::from_line(LABEL_END), Attribute::Stop);
+        assert_eq!(Attribute::from_line(LABEL_SKIP), Attribute::Skip);
+        assert_eq!(Attribute::from_line(LABEL_TAG), Attribute::None);
+        assert_eq!(Attribute::from_line("- something else"), Attribute::None);
+        assert_eq!(Attribute::from_line("something else"), Attribute::None);
+    }
 
-        assert_eq!(Label::from_string(LABEL_SKIP).unwrap(), Label::Skip);
+    #[test]
+    fn attribute_to_line_works() {
+        assert_eq!(Attribute::Stop.to_line(), LABEL_END);
+        assert_eq!(Attribute::Skip.to_line(), LABEL_SKIP);
+        assert_eq!(Attribute::None.to_line(), "");
+    }
 
-        assert!(Label::from_string(&format!(
-            "{LABEL_TAG} {LABEL_TAG_SURROUND}{LABEL_TAG_SURROUND}"
-        ))
-        .is_err());
-        assert!(Label::from_string(&format!("{LABEL_TAG} {LABEL_TAG_SURROUND}rust")).is_err());
-        assert!(Label::from_string(&format!("rust{LABEL_TAG_SURROUND}")).is_err());
+    #[test]
+    fn tag_from_text_works() -> Result<(), Box<dyn Error>> {
         assert_eq!(
-            Label::from_string(&format!(
-                "{LABEL_TAG} {LABEL_TAG_SURROUND}rust{LABEL_TAG_SURROUND}"
-            ))
-            .unwrap(),
-            Label::Tag {
+            Tag::from_text("rust")?,
+            Tag {
                 text: String::from("rust")
             }
         );
+        assert!(Tag::from_text("").is_err());
+        assert!(Tag::from_text(LABEL_TAG_SURROUND).is_err());
 
-        assert!(Label::from_string("some string").is_err())
+        Ok(())
     }
 
     #[test]
-    fn label_to_string_works() {
-        assert_eq!(Label::End.to_string(), LABEL_END);
-
-        assert_eq!(Label::Skip.to_string(), LABEL_SKIP);
-
+    fn tag_from_line_works() -> Result<(), Box<dyn Error>> {
         assert_eq!(
-            Label::Tag {
-                text: String::from("rust"),
+            Tag::from_line(&format!(
+                "{LABEL_TAG} {LABEL_TAG_SURROUND}rust{LABEL_TAG_SURROUND}"
+            ))?,
+            Tag {
+                text: String::from("rust")
             }
-            .to_string(),
+        );
+        assert!(Tag::from_line(&format!("rust")).is_err());
+        assert!(Tag::from_line(&format!("{LABEL_TAG} rust")).is_err());
+        assert!(Tag::from_line(&format!("{LABEL_TAG} {LABEL_TAG_SURROUND}rust")).is_err());
+        assert!(Tag::from_line(&format!("{LABEL_TAG} rust{LABEL_TAG_SURROUND}")).is_err());
+        assert!(Tag::from_line(&format!("{LABEL_TAG_SURROUND}rust")).is_err());
+        assert!(Tag::from_line(&format!("rust{LABEL_TAG_SURROUND}")).is_err());
+
+        Ok(())
+    }
+
+    #[test]
+    fn tag_to_line_works() -> Result<(), Box<dyn Error>> {
+        assert_eq!(
+            Tag::from_text("rust")?.to_line(),
             format!("{LABEL_TAG} {LABEL_TAG_SURROUND}rust{LABEL_TAG_SURROUND}")
         );
-    }
 
-    #[test]
-    fn label_to_string_and_from_string() {
-        let label = Label::End;
-        let as_string = label.to_string();
-        assert_eq!(Label::from_string(&as_string).unwrap(), label);
+        Ok(())
     }
 }
