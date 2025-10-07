@@ -696,7 +696,7 @@ mod tests {
 
     // It ignores `mark_first` and counts to current time, so `mark_second` is the final time.
     #[test]
-    fn session_get_time_ignores_marks_if_they_have_label_skip() {
+    fn session_get_time_ignores_marks_if_they_are_skipped() {
         let mut mark_first = Mark::new(&testing::now_plus_secs(-3 * 60 * 60));
         mark_first.attribute = Attribute::Skip;
         let mark_second = Mark::new(&testing::now_plus_secs(-54 * 60 - 10)); // 54m 10s
@@ -709,7 +709,7 @@ mod tests {
     }
 
     #[test]
-    fn session_get_time_ignores_current_time_if_last_mark_has_label_skip() {
+    fn session_get_time_ignores_current_time_if_last_mark_is_skipped() {
         let mark_first = Mark::new(&testing::now_plus_secs(-3 * 60 * 60));
         let mut mark_second = Mark::new(&testing::now_plus_secs(-1 * 60 * 60 - 33 * 60 - 20)); // 1h 33m 20s
         mark_second.attribute = Attribute::Skip;
