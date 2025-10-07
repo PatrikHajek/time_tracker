@@ -1,4 +1,8 @@
-use crate::{date_time::DateTime, get_git_branch_name, resolve_path, session::Tag};
+use crate::{
+    date_time::DateTime,
+    get_git_branch_name, resolve_path,
+    session::{Attribute, Tag},
+};
 use std::{error::Error, fs, io, path::PathBuf};
 
 const CONFIG_PATH: &str = "~/.timetracker.toml";
@@ -57,6 +61,7 @@ pub enum Action {
     Unmark,
     Path,
     View,
+    Attribute { attribute: Attribute },
     Tag { tag: Tag },
     Untag { tag: Tag },
     Write { text: String },
@@ -111,6 +116,16 @@ impl Action {
                     return Err("too many arguments")?;
                 }
                 Action::View
+            }
+            "attribute" => {
+                if args.len() == 0 {
+                    return Err("no attribute specified")?;
+                } else if args.len() > 1 {
+                    return Err("too many arguments")?;
+                }
+                Action::Attribute {
+                    attribute: Attribute::from_text(&args[0])?,
+                }
             }
             "tag" | "untag" => {
                 if args.len() == 0 {
@@ -222,6 +237,16 @@ mod tests {
 
         assert_eq!(Action::build("view", &[])?, Action::View);
         assert!(Action::build("view", &[String::from("hello")]).is_err());
+
+        assert!(Action::build("attribute", &[]).is_err());
+        assert!(Action::build("attribute", &[String::from("hello")]).is_err());
+        assert_eq!(
+            Action::build("attribute", &[String::from("skip")])?,
+            Action::Attribute {
+                attribute: Attribute::Skip
+            }
+        );
+        assert!(Action::build("attribute", &[String::from("skip"), String::from("skip")]).is_err());
 
         assert!(Action::build("tag", &[]).is_err());
         assert_eq!(

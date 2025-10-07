@@ -240,6 +240,13 @@ impl Session {
         }
     }
 
+    pub fn set_attribute(&mut self, attribute: Attribute) {
+        self.marks
+            .last_mut()
+            .expect("session must always have at least one mark")
+            .attribute = attribute;
+    }
+
     pub fn tag(&mut self, tag: &Tag) -> bool {
         self.marks
             .last_mut()
@@ -430,6 +437,16 @@ pub enum Attribute {
 }
 
 impl Attribute {
+    pub fn from_text(text: &str) -> Result<Attribute, &'static str> {
+        const ATTRIBUTE_NONE: &str = "none";
+        let attribute = Attribute::from_line(&format!("{LABEL_PREFIX}{text}"));
+        if attribute != Attribute::None || text == ATTRIBUTE_NONE {
+            Ok(attribute)
+        } else {
+            Err("failed to parse attribute")
+        }
+    }
+
     fn from_line(text: &str) -> Attribute {
         match text.trim() {
             LABEL_STOP => Attribute::Stop,
@@ -780,6 +797,17 @@ mod tests {
     }
 
     #[test]
+    fn session_set_attribute_works() {
+        let config = Config {
+            sessions_path: PathBuf::from("sessions"),
+        };
+        let mut session = Session::new(&config, &DateTime::now());
+        assert_eq!(session.marks.last().unwrap().attribute, Attribute::None);
+        session.set_attribute(Attribute::Skip);
+        assert_eq!(session.marks.last().unwrap().attribute, Attribute::Skip);
+    }
+
+    #[test]
     fn session_tag_works() {
         let config = Config {
             sessions_path: PathBuf::from("sessions"),
@@ -1110,6 +1138,16 @@ mod tests {
             contents: String::from("This is a content of a mark.\nHow are you?"),
         };
         assert_eq!(mark, Mark::from_line(&mark.to_line())?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn attribute_from_text_works() -> Result<(), Box<dyn Error>> {
+        assert_eq!(Attribute::from_text("stop")?, Attribute::Stop);
+        assert_eq!(Attribute::from_text("skip")?, Attribute::Skip);
+        assert_eq!(Attribute::from_text("none")?, Attribute::None);
+        assert!(Attribute::from_text("hello").is_err());
 
         Ok(())
     }
