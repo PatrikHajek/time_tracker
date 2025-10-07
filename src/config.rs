@@ -117,16 +117,13 @@ impl Action {
                 }
                 Action::View
             }
-            "attribute" => {
-                if args.len() == 0 {
-                    return Err("no attribute specified")?;
-                } else if args.len() > 1 {
-                    return Err("too many arguments")?;
-                }
-                Action::Attribute {
+            "attribute" => match args.len() {
+                0 => Err("no attribute specified")?,
+                1 => Action::Attribute {
                     attribute: Attribute::from_text(&args[0])?,
-                }
-            }
+                },
+                _ => Err("too many arguments")?,
+            },
             "tag" | "untag" => {
                 if args.len() == 0 {
                     return Err("no label specified")?;
